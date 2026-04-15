@@ -1,5 +1,5 @@
-model_name: Qwen/Qwen2.5-1.5B-Instruct
-torch_dtype: float32
+model_name: Qwen/Qwen2.5-7B-Instruct
+torch_dtype: float16
 device_map: null
 seed: 42
 
@@ -11,10 +11,10 @@ tasks:
     - svamp
     - boolq
 
-batch_size: 1
-max_new_tokens: 64
-limit_per_task: 1
-limit_prompts: 2
+batch_size: 2
+max_new_tokens: 96
+limit_per_task: 20
+limit_prompts: 10
 
 layers:
   - 4
@@ -30,7 +30,7 @@ base_prompt: "You are a helpful assistant."
 paths:
   prompts: data/prompts.jsonl
   datasets_dir: data/datasets
-  outputs_dir: outputs/cpu_smoke
+  outputs_dir: outputs/gpu_pilot
 
 analysis:
   ridge_alpha: 1.0

@@ -60,10 +60,21 @@ python scripts/extract_activation.py --config configs/config.cpu_smoke.yaml
 python scripts/run_analysis.py --config configs/config.cpu_smoke.yaml
 ```
 
-For a very fast smoke test on a slow server, also limit the prompt count:
+The CPU smoke config already writes into `outputs/cpu_smoke`, limits prompt count to 2, and uses a small 1.5B model.
+
+## Recommended GPU pilot on GPU 2
+
+For a first meaningful pilot on a multi-GPU server, use the dedicated GPU pilot config. It writes to `outputs/gpu_pilot`, uses the 7B model in fp16, limits to 10 prompts, and caps each task at 20 samples by default.
 
 ```bash
-python scripts/run_eval.py --config configs/config.cpu_smoke.yaml --limit-prompts 2
-python scripts/extract_activation.py --config configs/config.cpu_smoke.yaml --limit-prompts 2
-python scripts/run_analysis.py --config configs/config.cpu_smoke.yaml
+export CUDA_VISIBLE_DEVICES=2
+python scripts/run_eval.py --config configs/config.gpu_pilot.yaml
+python scripts/extract_activation.py --config configs/config.gpu_pilot.yaml
+python scripts/run_analysis.py --config configs/config.gpu_pilot.yaml
+```
+
+You can still override prompt or task limits at the command line:
+
+```bash
+python scripts/run_eval.py --config configs/config.gpu_pilot.yaml --limit-prompts 5 --limit-per-task 10
 ```

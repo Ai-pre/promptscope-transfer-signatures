@@ -45,8 +45,9 @@ def main():
         load_prompts(prompts_path),
         base_prompt=config["base_prompt"],
     )
-    if args.limit_prompts is not None:
-        prompts = prompts[: args.limit_prompts]
+    prompt_limit = args.limit_prompts if args.limit_prompts is not None else config.get("limit_prompts")
+    if prompt_limit is not None:
+        prompts = prompts[: int(prompt_limit)]
 
     task_names = flatten_task_config(config)
     datasets = {}
@@ -55,7 +56,7 @@ def main():
         datasets[task_name] = load_dataset(
             dataset_path,
             task_name=task_name,
-            limit=args.limit_per_task or config.get("limit_per_task"),
+            limit=args.limit_per_task if args.limit_per_task is not None else config.get("limit_per_task"),
         )
 
     model, tokenizer = load_model(
@@ -70,6 +71,10 @@ def main():
         print(f"[run_eval] prompt {prompt_index}/{total_prompts}: {prompt_record['id']}", flush=True)
         for task_name, dataset in datasets.items():
             split = "seen" if task_name in config["tasks"]["seen"] else "unseen"
+            print(
+                f"[run_eval]   task={task_name} split={split} samples={len(dataset)}",
+                flush=True,
+            )
             sample_rows.extend(
                 evaluate_dataset(
                     model=model,

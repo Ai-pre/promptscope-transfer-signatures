@@ -81,15 +81,16 @@ def main():
         load_prompts(prompts_path),
         base_prompt=config["base_prompt"],
     )
-    if args.limit_prompts is not None:
-        prompts = prompts[: args.limit_prompts]
+    prompt_limit = args.limit_prompts if args.limit_prompts is not None else config.get("limit_prompts")
+    if prompt_limit is not None:
+        prompts = prompts[: int(prompt_limit)]
     task_names = flatten_task_config(config)
     datasets = {}
     for task_name in task_names:
         datasets[task_name] = load_dataset(
             datasets_dir / f"{task_name}.json",
             task_name=task_name,
-            limit=args.limit_per_task or config.get("limit_per_task"),
+            limit=args.limit_per_task if args.limit_per_task is not None else config.get("limit_per_task"),
         )
 
     model, tokenizer = load_model(
@@ -107,6 +108,10 @@ def main():
         )
         for task_name, dataset in datasets.items():
             split = "seen" if task_name in config["tasks"]["seen"] else "unseen"
+            print(
+                f"[extract_activation]   task={task_name} split={split} samples={len(dataset)}",
+                flush=True,
+            )
             for sample in dataset:
                 prompt_text = build_input(tokenizer, prompt_record["text"], sample["input"])
                 base_text = build_input(tokenizer, config["base_prompt"], sample["input"])
