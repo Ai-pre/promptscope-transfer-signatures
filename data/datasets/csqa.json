@@ -1,0 +1,21 @@
+[
+  {
+    "id": "csqa-0",
+    "input": "Question: What do people use to absorb extra ink from a fountain pen?\nChoices:\nA. blotter\nB. glasses\nC. spoon\nD. blanket\nE. battery\nAnswer with the single best option.",
+    "label": "A",
+    "valid_choices": ["A", "B", "C", "D", "E"]
+  },
+  {
+    "id": "csqa-1",
+    "input": "Question: Where would you normally store ketchup after opening it?\nChoices:\nA. bookshelf\nB. refrigerator\nC. mailbox\nD. toolbox\nE. bathtub\nAnswer with the single best option.",
+    "label": "B",
+    "valid_choices": ["A", "B", "C", "D", "E"]
+  },
+  {
+    "id": "csqa-2",
+    "input": "Question: If you want to mail a letter, where do you typically go?\nChoices:\nA. post office\nB. desert\nC. ski lift\nD. attic\nE. aquarium\nAnswer with the single best option.",
+    "label": "A",
+    "valid_choices": ["A", "B", "C", "D", "E"]
+  }
+]
+

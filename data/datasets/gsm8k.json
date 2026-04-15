@@ -1,0 +1,18 @@
+[
+  {
+    "id": "gsm8k-0",
+    "input": "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?",
+    "label": "72"
+  },
+  {
+    "id": "gsm8k-1",
+    "input": "A bakery made 120 muffins in the morning and sold 35 before noon. It baked 40 more muffins in the afternoon and sold 50 more by closing time. How many muffins were left?",
+    "label": "75"
+  },
+  {
+    "id": "gsm8k-2",
+    "input": "A class has 18 students. Each student needs 4 pencils for a test week. The teacher already has 27 pencils. How many more pencils does the teacher need to buy?",
+    "label": "45"
+  }
+]
+

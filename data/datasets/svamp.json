@@ -1,0 +1,18 @@
+[
+  {
+    "id": "svamp-0",
+    "input": "Mina has 14 apples. She gives 5 apples to her sister and then buys 9 more apples. How many apples does Mina have now?",
+    "label": "18"
+  },
+  {
+    "id": "svamp-1",
+    "input": "There were 32 birds on a tree. 11 flew away and then 7 more landed on the tree. How many birds are on the tree now?",
+    "label": "28"
+  },
+  {
+    "id": "svamp-2",
+    "input": "A student read 12 pages on Monday, 15 pages on Tuesday, and 9 pages on Wednesday. If the book has 50 pages total, how many pages are left?",
+    "label": "14"
+  }
+]
+

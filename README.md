@@ -1,0 +1,51 @@
+# PromptScope: Transferable System Prompt Signatures
+
+This repository implements an end-to-end pilot pipeline for testing whether transferable system prompts produce shared activation signatures and whether those signatures predict unseen-task transfer.
+
+## What is included
+
+- `scripts/run_eval.py`: runs prompt-level generation and task evaluation
+- `scripts/extract_activation.py`: extracts hidden states and computes `delta_h = h(prompt) - h(base_prompt)`
+- `scripts/run_analysis.py`: computes similarity, stability, and transfer prediction baselines
+- `data/prompts.jsonl`: starter prompt pool with 30 canonical prompts
+- `data/datasets/*.json`: small schema examples for each task
+
+## Dataset schema
+
+Each dataset file should be a JSON list with records like:
+
+```json
+{
+  "id": "gsm8k-0",
+  "input": "Question text here",
+  "label": "42"
+}
+```
+
+Optional fields:
+
+- `valid_choices`: valid answer labels for multiple choice tasks such as `["A", "B", "C", "D", "E"]`
+
+## Prompt schema
+
+Each prompt record is stored as JSONL:
+
+```json
+{
+  "id": "manual_helpful",
+  "group_id": "manual_helpful",
+  "variant": "original",
+  "source": "manual",
+  "text": "You are a helpful assistant."
+}
+```
+
+To support paraphrase stability experiments, add extra rows with the same `group_id` and different `variant` values such as `paraphrase_1`, `paraphrase_2`, `paraphrase_3`.
+
+## Run
+
+```bash
+python scripts/run_eval.py
+python scripts/extract_activation.py
+python scripts/run_analysis.py
+```

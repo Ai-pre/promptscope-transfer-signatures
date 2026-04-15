@@ -1,0 +1,18 @@
+[
+  {
+    "id": "boolq-0",
+    "input": "Passage: The Pacific Ocean is the largest and deepest ocean on Earth, covering more than 30% of the planet's surface.\nQuestion: Is the Pacific Ocean larger than the Atlantic Ocean?\nAnswer true or false.",
+    "label": "true"
+  },
+  {
+    "id": "boolq-1",
+    "input": "Passage: Penguins are flightless birds that live primarily in the Southern Hemisphere.\nQuestion: Can penguins fly long distances in the sky?\nAnswer true or false.",
+    "label": "false"
+  },
+  {
+    "id": "boolq-2",
+    "input": "Passage: Water boils at 100 degrees Celsius at standard atmospheric pressure.\nQuestion: Does water boil at 100 degrees Celsius under standard atmospheric pressure?\nAnswer true or false.",
+    "label": "true"
+  }
+]
+
