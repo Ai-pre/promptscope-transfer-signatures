@@ -5,6 +5,10 @@ from collections import defaultdict
 
 import numpy as np
 
+from _bootstrap import bootstrap_project_root
+
+bootstrap_project_root()
+
 from src.activation.extractor import compute_delta_h, extract_hidden_states, get_positions, select_hidden_vector
 from src.model.load_model import load_model
 from src.prompt.prompt_builder import build_input
@@ -169,4 +173,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -4,6 +4,10 @@ import argparse
 
 import pandas as pd
 
+from _bootstrap import bootstrap_project_root
+
+bootstrap_project_root()
+
 from src.eval.evaluator import evaluate_dataset, summarize_prompt_metrics
 from src.model.load_model import load_model
 from src.utils.io import (
@@ -91,4 +95,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

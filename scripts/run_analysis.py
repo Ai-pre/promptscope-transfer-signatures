@@ -5,6 +5,10 @@ import argparse
 import numpy as np
 import pandas as pd
 
+from _bootstrap import bootstrap_project_root
+
+bootstrap_project_root()
+
 from src.analysis.analyzer import (
     build_baseline_matrix,
     build_pairwise_similarity_table,
@@ -199,4 +203,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
