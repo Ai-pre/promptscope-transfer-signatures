@@ -118,6 +118,29 @@ def build_pairwise_similarity_table(prompt_meta, similarity_matrix):
     return pd.DataFrame(rows)
 
 
+def merge_prompt_features_with_eval(prompt_meta, prompt_features, eval_prompt_summary):
+    analysis_table = prompt_meta.merge(
+        eval_prompt_summary,
+        on=[
+            "prompt_id",
+            "group_id",
+            "variant",
+            "source",
+            "prompt_text",
+            "prompt_length_chars",
+            "prompt_length_words",
+        ],
+        how="inner",
+    )
+    valid_prompt_ids = analysis_table["prompt_id"].tolist()
+    mask = prompt_meta["prompt_id"].isin(valid_prompt_ids).to_numpy()
+    return (
+        prompt_features[mask],
+        prompt_meta[mask].reset_index(drop=True),
+        analysis_table.reset_index(drop=True),
+    )
+
+
 def compute_paraphrase_stability(prompt_meta, prompt_features, eval_prompt_summary=None):
     rows = []
     prompt_index = {row["prompt_id"]: idx for idx, row in prompt_meta.iterrows()}
@@ -175,6 +198,120 @@ def compute_paraphrase_stability(prompt_meta, prompt_features, eval_prompt_summa
         stability_df["paraphrase_unseen_accuracy"] - stability_df["original_unseen_accuracy"]
     )
     return stability_df
+
+
+def evaluate_prediction_block(
+    X,
+    analysis_table,
+    *,
+    alpha: float,
+    c_value: float,
+    n_splits: int,
+    top_k: int,
+    random_trials: int,
+    random_state: int = 42,
+):
+    y_reg = analysis_table["unseen_mean_accuracy"].to_numpy(dtype=np.float64)
+    y_cls = (y_reg >= np.nanmedian(y_reg)).astype(np.int64)
+    seen_scores = analysis_table["seen_mean_accuracy"].to_numpy(dtype=np.float64)
+
+    activation_pred, activation_r2 = out_of_fold_regression_predictions(
+        X,
+        y_reg,
+        alpha=alpha,
+        n_splits=n_splits,
+        random_state=random_state,
+    )
+    _, activation_logistic_acc = out_of_fold_logistic_accuracy(
+        X,
+        y_cls,
+        c_value=c_value,
+        n_splits=n_splits,
+        random_state=random_state,
+    )
+
+    return {
+        "activation_ridge_r2": float(activation_r2),
+        "activation_logistic_accuracy": float(activation_logistic_acc),
+        "activation_top_k_unseen_accuracy": top_k_mean(activation_pred, y_reg, top_k),
+        "seen_accuracy_top_k_unseen_accuracy": top_k_mean(seen_scores, y_reg, top_k),
+        "random_top_k_unseen_accuracy": random_top_k_mean(
+            y_reg,
+            top_k,
+            trials=random_trials,
+            random_state=random_state,
+        ),
+        "num_prompts": int(len(analysis_table)),
+        "feature_dim": int(X.shape[1]),
+    }
+
+
+def build_slice_analysis_table(
+    activation_summary_df,
+    summary_vectors,
+    eval_prompt_summary,
+    *,
+    tasks,
+    alpha: float,
+    c_value: float,
+    n_splits: int,
+    top_k: int,
+    random_trials: int,
+    random_state: int = 42,
+):
+    rows = []
+    seen_df = activation_summary_df[activation_summary_df["task"].isin(tasks)].copy()
+
+    slice_specs = []
+    for layer in sorted(seen_df["layer"].drop_duplicates().tolist()):
+        slice_specs.append(("layer", {"layer": layer}))
+    for position in sorted(seen_df["position"].drop_duplicates().tolist()):
+        slice_specs.append(("position", {"position": position}))
+    pair_df = seen_df[["layer", "position"]].drop_duplicates().sort_values(["layer", "position"])
+    for row in pair_df.itertuples(index=False):
+        slice_specs.append(("layer_position", {"layer": row.layer, "position": row.position}))
+
+    for slice_type, filters in slice_specs:
+        sliced = seen_df.copy()
+        for key, value in filters.items():
+            sliced = sliced[sliced[key] == value]
+        if sliced.empty:
+            continue
+
+        slice_features, slice_meta, feature_keys = build_prompt_feature_matrix(
+            activation_summary_df=sliced,
+            summary_vectors=summary_vectors,
+            tasks=tasks,
+        )
+        slice_features, slice_meta, slice_table = merge_prompt_features_with_eval(
+            slice_meta,
+            slice_features,
+            eval_prompt_summary,
+        )
+        if len(slice_table) < 2:
+            continue
+
+        metrics = evaluate_prediction_block(
+            slice_features,
+            slice_table,
+            alpha=alpha,
+            c_value=c_value,
+            n_splits=n_splits,
+            top_k=top_k,
+            random_trials=random_trials,
+            random_state=random_state,
+        )
+        rows.append(
+            {
+                "slice_type": slice_type,
+                "layer": filters.get("layer"),
+                "position": filters.get("position"),
+                "feature_blocks": len(feature_keys),
+                **metrics,
+            }
+        )
+
+    return pd.DataFrame(rows)
 
 
 def _make_kfold(n_samples: int, n_splits: int, random_state: int = 42):
@@ -276,4 +413,3 @@ def random_top_k_mean(target, k: int, trials: int = 500, random_state: int = 42)
 def write_analysis_summary(path, summary: dict):
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(summary, handle, indent=2, ensure_ascii=False)
-

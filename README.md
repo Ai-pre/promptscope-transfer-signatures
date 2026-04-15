@@ -100,3 +100,24 @@ You can still override prompt or task limits at the command line:
 ```bash
 python scripts/run_eval.py --config configs/config.gpu_pilot.yaml --limit-prompts 5 --limit-per-task 10
 ```
+
+## Stability pilot with paraphrases
+
+To open the paraphrase-stability experiment, first build a prompt pool with 3 paraphrases per original prompt:
+
+```bash
+python scripts/build_paraphrase_prompt_pool.py --limit-groups 10
+```
+
+This writes `data/prompts_paraphrase_pilot.jsonl` with 10 original prompt groups and 3 paraphrases per group.
+
+Then run the stability-oriented pilot:
+
+```bash
+export CUDA_VISIBLE_DEVICES=2
+python scripts/run_eval.py --config configs/config.gpu_stability_pilot.yaml
+python scripts/extract_activation.py --config configs/config.gpu_stability_pilot.yaml
+python scripts/run_analysis.py --config configs/config.gpu_stability_pilot.yaml
+```
+
+The analysis step now also writes `outputs/.../results/slice_analysis.parquet` and `slice_analysis.json`, which compare activation signal by `layer`, `position`, and `layer_position` slices.

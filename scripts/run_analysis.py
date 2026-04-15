@@ -10,18 +10,21 @@ from _bootstrap import bootstrap_project_root
 bootstrap_project_root()
 
 from src.analysis.analyzer import (
+    build_slice_analysis_table,
     build_baseline_matrix,
     build_pairwise_similarity_table,
     build_prompt_feature_matrix,
     compute_paraphrase_stability,
     compute_similarity_matrix,
+    evaluate_prediction_block,
+    merge_prompt_features_with_eval,
     out_of_fold_logistic_accuracy,
     out_of_fold_regression_predictions,
     random_top_k_mean,
     top_k_mean,
     write_analysis_summary,
 )
-from src.utils.io import ensure_dir, load_config, resolve_path, save_dataframe, save_markdown
+from src.utils.io import ensure_dir, load_config, resolve_path, save_dataframe, save_json, save_markdown
 
 
 def parse_args():
@@ -30,7 +33,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def format_report(summary, feature_keys_count, prompt_count):
+def format_report(summary, feature_keys_count, prompt_count, best_slice=None):
     lines = [
         "# Final Report",
         "",
@@ -58,6 +61,19 @@ def format_report(summary, feature_keys_count, prompt_count):
         f"- Mean paraphrase activation cosine: {summary['stability']['mean_activation_cosine']:.4f}",
         "",
     ]
+    if best_slice is not None:
+        lines.extend(
+            [
+                "## Best Slice",
+                "",
+                f"- Slice type: {best_slice['slice_type']}",
+                f"- Layer: {best_slice['layer']}",
+                f"- Position: {best_slice['position']}",
+                f"- Slice ridge R^2: {best_slice['activation_ridge_r2']:.4f}",
+                f"- Slice top-k unseen accuracy: {best_slice['activation_top_k_unseen_accuracy']:.4f}",
+                "",
+            ]
+        )
     return "\n".join(lines)
 
 
@@ -82,24 +98,11 @@ def main():
         tasks=config["tasks"]["seen"],
     )
 
-    analysis_table = prompt_meta.merge(
+    prompt_features, prompt_meta, analysis_table = merge_prompt_features_with_eval(
+        prompt_meta,
+        prompt_features,
         eval_prompt_summary,
-        on=[
-            "prompt_id",
-            "group_id",
-            "variant",
-            "source",
-            "prompt_text",
-            "prompt_length_chars",
-            "prompt_length_words",
-        ],
-        how="inner",
     )
-    valid_prompt_ids = analysis_table["prompt_id"].tolist()
-    mask = prompt_meta["prompt_id"].isin(valid_prompt_ids).to_numpy()
-    prompt_features = prompt_features[mask]
-    prompt_meta = prompt_meta[mask].reset_index(drop=True)
-    analysis_table = analysis_table.reset_index(drop=True)
 
     similarity_matrix = compute_similarity_matrix(prompt_features)
     similarity_df = build_pairwise_similarity_table(prompt_meta, similarity_matrix)
@@ -112,23 +115,18 @@ def main():
     )
     save_dataframe(stability_df, results_dir / "paraphrase_stability.parquet")
 
-    y_reg = analysis_table["unseen_mean_accuracy"].to_numpy(dtype=np.float64)
-    y_cls = (y_reg >= np.nanmedian(y_reg)).astype(np.int64)
-
-    activation_pred, activation_r2 = out_of_fold_regression_predictions(
+    prediction_metrics = evaluate_prediction_block(
         prompt_features,
-        y_reg,
+        analysis_table,
         alpha=config["analysis"]["ridge_alpha"],
-        n_splits=config["analysis"]["n_splits"],
-        random_state=config.get("seed", 42),
-    )
-    _, activation_logistic_acc = out_of_fold_logistic_accuracy(
-        prompt_features,
-        y_cls,
         c_value=config["analysis"]["logistic_c"],
         n_splits=config["analysis"]["n_splits"],
+        top_k=config["analysis"]["top_k"],
+        random_trials=config["analysis"]["random_trials"],
         random_state=config.get("seed", 42),
     )
+
+    y_reg = analysis_table["unseen_mean_accuracy"].to_numpy(dtype=np.float64)
 
     baseline_features, _ = build_baseline_matrix(
         eval_prompt_summary=analysis_table,
@@ -160,41 +158,61 @@ def main():
     else:
         apo_r2 = float("nan")
 
-    top_k = config["analysis"]["top_k"]
-    selection_summary = {
-        "activation_top_k_unseen_accuracy": top_k_mean(activation_pred, y_reg, top_k),
-        "seen_accuracy_top_k_unseen_accuracy": top_k_mean(
-            analysis_table["seen_mean_accuracy"].to_numpy(dtype=np.float64),
-            y_reg,
-            top_k,
-        ),
-        "random_top_k_unseen_accuracy": random_top_k_mean(
-            y_reg,
-            top_k,
-            trials=config["analysis"]["random_trials"],
-            random_state=config.get("seed", 42),
-        ),
-    }
+    slice_analysis = build_slice_analysis_table(
+        activation_summary_df=activation_summary,
+        summary_vectors=summary_vectors,
+        eval_prompt_summary=eval_prompt_summary,
+        tasks=config["tasks"]["seen"],
+        alpha=config["analysis"]["ridge_alpha"],
+        c_value=config["analysis"]["logistic_c"],
+        n_splits=config["analysis"]["n_splits"],
+        top_k=config["analysis"]["top_k"],
+        random_trials=config["analysis"]["random_trials"],
+        random_state=config.get("seed", 42),
+    )
+    save_dataframe(slice_analysis, results_dir / "slice_analysis.parquet")
+    save_json(
+        results_dir / "slice_analysis.json",
+        slice_analysis.to_dict(orient="records"),
+    )
+
+    best_slice = None
+    if not slice_analysis.empty:
+        ranked = slice_analysis.sort_values(
+            ["activation_top_k_unseen_accuracy", "activation_ridge_r2"],
+            ascending=[False, False],
+        )
+        best_slice = ranked.iloc[0].to_dict()
 
     summary = {
         "prediction": {
-            "activation_ridge_r2": float(activation_r2),
-            "activation_logistic_accuracy": float(activation_logistic_acc),
+            "activation_ridge_r2": prediction_metrics["activation_ridge_r2"],
+            "activation_logistic_accuracy": prediction_metrics["activation_logistic_accuracy"],
             "seen_accuracy_ridge_r2": float(seen_r2),
             "prompt_meta_ridge_r2": float(prompt_meta_r2),
             "apo_rank_ridge_r2": float(apo_r2),
         },
-        "selection": selection_summary,
+        "selection": {
+            "activation_top_k_unseen_accuracy": prediction_metrics["activation_top_k_unseen_accuracy"],
+            "seen_accuracy_top_k_unseen_accuracy": prediction_metrics["seen_accuracy_top_k_unseen_accuracy"],
+            "random_top_k_unseen_accuracy": prediction_metrics["random_top_k_unseen_accuracy"],
+        },
         "stability": {
             "num_pairs": int(len(stability_df)),
             "mean_activation_cosine": float(stability_df["activation_cosine"].mean()) if not stability_df.empty else float("nan"),
         },
+        "best_slice": best_slice,
     }
 
     write_analysis_summary(results_dir / "analysis_summary.json", summary)
     save_markdown(
         results_dir / "final_report.md",
-        format_report(summary, feature_keys_count=len(feature_keys), prompt_count=len(prompt_meta)),
+        format_report(
+            summary,
+            feature_keys_count=len(feature_keys),
+            prompt_count=len(prompt_meta),
+            best_slice=best_slice,
+        ),
     )
     save_dataframe(analysis_table, results_dir / "analysis_prompt_table.parquet")
 
