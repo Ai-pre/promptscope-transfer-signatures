@@ -1,3 +1,4 @@
+accelerate
 numpy
 pandas
 pyarrow
@@ -5,4 +6,3 @@ PyYAML
 scikit-learn
 torch
 transformers
-

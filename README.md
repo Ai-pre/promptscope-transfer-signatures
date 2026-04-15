@@ -49,3 +49,13 @@ python scripts/run_eval.py
 python scripts/extract_activation.py
 python scripts/run_analysis.py
 ```
+
+## Server-friendly smoke test
+
+If your server cannot use the default 7B model with CUDA, use the smaller CPU-oriented config:
+
+```bash
+python scripts/run_eval.py --config configs/config.cpu_smoke.yaml
+python scripts/extract_activation.py --config configs/config.cpu_smoke.yaml
+python scripts/run_analysis.py --config configs/config.cpu_smoke.yaml
+```

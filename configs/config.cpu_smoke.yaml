@@ -1,0 +1,40 @@
+model_name: Qwen/Qwen2.5-1.5B-Instruct
+torch_dtype: float32
+device_map: null
+seed: 42
+
+tasks:
+  seen:
+    - gsm8k
+    - csqa
+  unseen:
+    - svamp
+    - boolq
+
+batch_size: 1
+max_new_tokens: 64
+limit_per_task: 1
+
+layers:
+  - 4
+  - 12
+  - -1
+
+positions:
+  - system_last_token
+  - first_user_token
+
+base_prompt: "You are a helpful assistant."
+
+paths:
+  prompts: data/prompts.jsonl
+  datasets_dir: data/datasets
+  outputs_dir: outputs
+
+analysis:
+  ridge_alpha: 1.0
+  logistic_c: 1.0
+  n_splits: 5
+  top_k: 5
+  random_trials: 500
+
