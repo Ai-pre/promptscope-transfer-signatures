@@ -50,6 +50,28 @@ python scripts/extract_activation.py
 python scripts/run_analysis.py
 ```
 
+## Download real benchmark data
+
+The repository ships with tiny placeholder files for quick smoke tests. To fetch real benchmark data from the Hugging Face Hub and convert it into the local JSON schema, run:
+
+```bash
+python -m pip install -r requirements.txt
+python scripts/prepare_datasets.py
+```
+
+This downloader currently uses:
+
+- `openai/gsm8k` `train` for `gsm8k.json`
+- `tau/commonsense_qa` `validation` for `csqa.json`
+- `MU-NLPC/Calc-svamp` `test` for `svamp.json`
+- `google/boolq` `validation` for `boolq.json`
+
+If you only want a quick pilot subset:
+
+```bash
+python scripts/prepare_datasets.py --max-samples 100
+```
+
 ## Server-friendly smoke test
 
 If your server cannot use the default 7B model with CUDA, use the smaller CPU-oriented config:
