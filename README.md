@@ -59,3 +59,11 @@ python scripts/run_eval.py --config configs/config.cpu_smoke.yaml
 python scripts/extract_activation.py --config configs/config.cpu_smoke.yaml
 python scripts/run_analysis.py --config configs/config.cpu_smoke.yaml
 ```
+
+For a very fast smoke test on a slow server, also limit the prompt count:
+
+```bash
+python scripts/run_eval.py --config configs/config.cpu_smoke.yaml --limit-prompts 2
+python scripts/extract_activation.py --config configs/config.cpu_smoke.yaml --limit-prompts 2
+python scripts/run_analysis.py --config configs/config.cpu_smoke.yaml
+```

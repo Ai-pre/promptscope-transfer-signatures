@@ -30,6 +30,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Extract hidden-state activation deltas for prompts.")
     parser.add_argument("--config", default="configs/config.yaml")
     parser.add_argument("--limit-per-task", type=int, default=None)
+    parser.add_argument("--limit-prompts", type=int, default=None)
     return parser.parse_args()
 
 
@@ -80,6 +81,8 @@ def main():
         load_prompts(prompts_path),
         base_prompt=config["base_prompt"],
     )
+    if args.limit_prompts is not None:
+        prompts = prompts[: args.limit_prompts]
     task_names = flatten_task_config(config)
     datasets = {}
     for task_name in task_names:
@@ -96,7 +99,12 @@ def main():
     )
 
     sample_rows = []
-    for prompt_record in prompts:
+    total_prompts = len(prompts)
+    for prompt_index, prompt_record in enumerate(prompts, start=1):
+        print(
+            f"[extract_activation] prompt {prompt_index}/{total_prompts}: {prompt_record['id']}",
+            flush=True,
+        )
         for task_name, dataset in datasets.items():
             split = "seen" if task_name in config["tasks"]["seen"] else "unseen"
             for sample in dataset:

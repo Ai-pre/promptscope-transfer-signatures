@@ -87,7 +87,6 @@ def load_model(model_name: str, torch_dtype: str = "auto", device_map: str | Non
     runtime_dtype = maybe_adjust_dtype_for_device(requested_dtype, runtime_device_map)
 
     model_kwargs = {
-        "output_hidden_states": True,
         "torch_dtype": runtime_dtype,
         "trust_remote_code": True,
     }
