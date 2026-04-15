@@ -121,3 +121,38 @@ python scripts/run_analysis.py --config configs/config.gpu_stability_pilot.yaml
 ```
 
 The analysis step now also writes `outputs/.../results/slice_analysis.parquet` and `slice_analysis.json`, which compare activation signal by `layer`, `position`, and `layer_position` slices.
+
+## Scale-up run
+
+If the small pilots finish cleanly and you want a more meaningful run with larger sample counts, use the scale-up configs.
+
+Non-paraphrase scale-up:
+
+```bash
+export CUDA_VISIBLE_DEVICES=2
+python scripts/run_eval.py --config configs/config.gpu_scaleup.yaml
+python scripts/extract_activation.py --config configs/config.gpu_scaleup.yaml
+python scripts/run_analysis.py --config configs/config.gpu_scaleup.yaml
+```
+
+This uses:
+
+- 20 original prompts
+- 100 samples per task
+- outputs in `outputs/gpu_scaleup`
+
+Stability scale-up:
+
+```bash
+python scripts/build_paraphrase_prompt_pool.py --limit-groups 10
+export CUDA_VISIBLE_DEVICES=2
+python scripts/run_eval.py --config configs/config.gpu_stability_scaleup.yaml
+python scripts/extract_activation.py --config configs/config.gpu_stability_scaleup.yaml
+python scripts/run_analysis.py --config configs/config.gpu_stability_scaleup.yaml
+```
+
+This uses:
+
+- 10 prompt groups x 4 variants = 40 prompt variants
+- 50 samples per task
+- outputs in `outputs/gpu_stability_scaleup`
