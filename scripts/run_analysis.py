@@ -18,10 +18,7 @@ from src.analysis.analyzer import (
     compute_similarity_matrix,
     evaluate_prediction_block,
     merge_prompt_features_with_eval,
-    out_of_fold_logistic_accuracy,
     out_of_fold_regression_predictions,
-    random_top_k_mean,
-    top_k_mean,
     write_analysis_summary,
 )
 from src.utils.io import ensure_dir, load_config, resolve_path, save_dataframe, save_json, save_markdown
@@ -127,6 +124,7 @@ def main():
     )
 
     y_reg = analysis_table["unseen_mean_accuracy"].to_numpy(dtype=np.float64)
+    group_ids = analysis_table["group_id"].to_numpy()
 
     baseline_features, _ = build_baseline_matrix(
         eval_prompt_summary=analysis_table,
@@ -138,6 +136,7 @@ def main():
         alpha=config["analysis"]["ridge_alpha"],
         n_splits=config["analysis"]["n_splits"],
         random_state=config.get("seed", 42),
+        groups=group_ids,
     )
     _, prompt_meta_r2 = out_of_fold_regression_predictions(
         baseline_features["prompt_meta"],
@@ -145,6 +144,7 @@ def main():
         alpha=config["analysis"]["ridge_alpha"],
         n_splits=config["analysis"]["n_splits"],
         random_state=config.get("seed", 42),
+        groups=group_ids,
     )
 
     if "apo_rank" in baseline_features:
@@ -154,6 +154,7 @@ def main():
             alpha=config["analysis"]["ridge_alpha"],
             n_splits=config["analysis"]["n_splits"],
             random_state=config.get("seed", 42),
+            groups=group_ids,
         )
     else:
         apo_r2 = float("nan")

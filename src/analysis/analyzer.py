@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.metrics import accuracy_score, r2_score
-from sklearn.model_selection import KFold
+from sklearn.model_selection import GroupKFold, KFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -46,8 +46,8 @@ def lexical_similarity(text: str, reference: str):
 
 
 def build_prompt_feature_matrix(activation_summary_df, summary_vectors, tasks=None):
-    df = activation_summary_df.copy().reset_index(drop=True)
-    df["vector_row"] = np.arange(len(df))
+    df = activation_summary_df.copy()
+    df["vector_row"] = df.index.to_numpy()
 
     if tasks is not None:
         df = df[df["task"].isin(tasks)].copy()
@@ -200,6 +200,23 @@ def compute_paraphrase_stability(prompt_meta, prompt_features, eval_prompt_summa
     return stability_df
 
 
+def aggregate_group_selection_inputs(score, target, seen_score, group_ids):
+    frame = pd.DataFrame(
+        {
+            "score": np.asarray(score, dtype=np.float64),
+            "target": np.asarray(target, dtype=np.float64),
+            "seen_score": np.asarray(seen_score, dtype=np.float64),
+            "group_id": np.asarray(group_ids),
+        }
+    )
+    aggregated = (
+        frame.groupby("group_id", dropna=False)[["score", "target", "seen_score"]]
+        .mean()
+        .reset_index()
+    )
+    return aggregated
+
+
 def evaluate_prediction_block(
     X,
     analysis_table,
@@ -214,6 +231,7 @@ def evaluate_prediction_block(
     y_reg = analysis_table["unseen_mean_accuracy"].to_numpy(dtype=np.float64)
     y_cls = (y_reg >= np.nanmedian(y_reg)).astype(np.int64)
     seen_scores = analysis_table["seen_mean_accuracy"].to_numpy(dtype=np.float64)
+    group_ids = analysis_table["group_id"].to_numpy()
 
     activation_pred, activation_r2 = out_of_fold_regression_predictions(
         X,
@@ -221,6 +239,7 @@ def evaluate_prediction_block(
         alpha=alpha,
         n_splits=n_splits,
         random_state=random_state,
+        groups=group_ids,
     )
     _, activation_logistic_acc = out_of_fold_logistic_accuracy(
         X,
@@ -228,20 +247,37 @@ def evaluate_prediction_block(
         c_value=c_value,
         n_splits=n_splits,
         random_state=random_state,
+        groups=group_ids,
+    )
+
+    selection_inputs = aggregate_group_selection_inputs(
+        activation_pred,
+        y_reg,
+        seen_scores,
+        group_ids,
     )
 
     return {
         "activation_ridge_r2": float(activation_r2),
         "activation_logistic_accuracy": float(activation_logistic_acc),
-        "activation_top_k_unseen_accuracy": top_k_mean(activation_pred, y_reg, top_k),
-        "seen_accuracy_top_k_unseen_accuracy": top_k_mean(seen_scores, y_reg, top_k),
+        "activation_top_k_unseen_accuracy": top_k_mean(
+            selection_inputs["score"].to_numpy(dtype=np.float64),
+            selection_inputs["target"].to_numpy(dtype=np.float64),
+            top_k,
+        ),
+        "seen_accuracy_top_k_unseen_accuracy": top_k_mean(
+            selection_inputs["seen_score"].to_numpy(dtype=np.float64),
+            selection_inputs["target"].to_numpy(dtype=np.float64),
+            top_k,
+        ),
         "random_top_k_unseen_accuracy": random_top_k_mean(
-            y_reg,
+            selection_inputs["target"].to_numpy(dtype=np.float64),
             top_k,
             trials=random_trials,
             random_state=random_state,
         ),
         "num_prompts": int(len(analysis_table)),
+        "num_groups": int(selection_inputs["group_id"].nunique()),
         "feature_dim": int(X.shape[1]),
     }
 
@@ -314,20 +350,40 @@ def build_slice_analysis_table(
     return pd.DataFrame(rows)
 
 
-def _make_kfold(n_samples: int, n_splits: int, random_state: int = 42):
+def _make_splitter(n_samples: int, n_splits: int, random_state: int = 42, groups=None):
+    if groups is not None:
+        unique_groups = pd.Series(groups).nunique(dropna=False)
+        actual_splits = min(n_splits, unique_groups)
+        if actual_splits < 2:
+            return None
+        return GroupKFold(n_splits=actual_splits)
+
     actual_splits = min(n_splits, n_samples)
     if actual_splits < 2:
         return None
     return KFold(n_splits=actual_splits, shuffle=True, random_state=random_state)
 
 
-def out_of_fold_regression_predictions(X, y, alpha: float = 1.0, n_splits: int = 5, random_state: int = 42):
-    splitter = _make_kfold(len(X), n_splits=n_splits, random_state=random_state)
+def out_of_fold_regression_predictions(
+    X,
+    y,
+    alpha: float = 1.0,
+    n_splits: int = 5,
+    random_state: int = 42,
+    groups=None,
+):
+    splitter = _make_splitter(
+        len(X),
+        n_splits=n_splits,
+        random_state=random_state,
+        groups=groups,
+    )
     if splitter is None:
         return np.full(len(y), np.nan), float("nan")
 
     predictions = np.zeros(len(y), dtype=np.float64)
-    for train_index, test_index in splitter.split(X):
+    split_iter = splitter.split(X, y, groups) if groups is not None else splitter.split(X)
+    for train_index, test_index in split_iter:
         model = Pipeline(
             [
                 ("scale", StandardScaler()),
@@ -340,16 +396,29 @@ def out_of_fold_regression_predictions(X, y, alpha: float = 1.0, n_splits: int =
     return predictions, float(r2_score(y, predictions))
 
 
-def out_of_fold_logistic_accuracy(X, y, c_value: float = 1.0, n_splits: int = 5, random_state: int = 42):
+def out_of_fold_logistic_accuracy(
+    X,
+    y,
+    c_value: float = 1.0,
+    n_splits: int = 5,
+    random_state: int = 42,
+    groups=None,
+):
     if len(np.unique(y)) < 2:
         return np.full(len(y), np.nan), float("nan")
 
-    splitter = _make_kfold(len(X), n_splits=n_splits, random_state=random_state)
+    splitter = _make_splitter(
+        len(X),
+        n_splits=n_splits,
+        random_state=random_state,
+        groups=groups,
+    )
     if splitter is None:
         return np.full(len(y), np.nan), float("nan")
 
     predictions = np.zeros(len(y), dtype=np.int64)
-    for train_index, test_index in splitter.split(X):
+    split_iter = splitter.split(X, y, groups) if groups is not None else splitter.split(X)
+    for train_index, test_index in split_iter:
         model = Pipeline(
             [
                 ("scale", StandardScaler()),
