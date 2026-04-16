@@ -14,7 +14,7 @@ tasks:
 batch_size: 2
 max_new_tokens: 96
 limit_per_task: 100
-limit_prompts: 20
+limit_prompts: null
 
 layers:
   - 4
@@ -28,7 +28,7 @@ positions:
 base_prompt: "You are a helpful assistant."
 
 paths:
-  prompts: data/prompts.jsonl
+  prompts: data/prompts_paper_backed.jsonl
   datasets_dir: data/datasets
   outputs_dir: outputs/gpu_scaleup
 
@@ -38,4 +38,3 @@ analysis:
   n_splits: 5
   top_k: 5
   random_trials: 500
-

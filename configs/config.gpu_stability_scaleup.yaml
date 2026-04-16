@@ -28,7 +28,7 @@ positions:
 base_prompt: "You are a helpful assistant."
 
 paths:
-  prompts: data/prompts_paraphrase_pilot.jsonl
+  prompts: data/prompts_paper_backed_paraphrase.jsonl
   datasets_dir: data/datasets
   outputs_dir: outputs/gpu_stability_scaleup
 
@@ -38,4 +38,3 @@ analysis:
   n_splits: 5
   top_k: 5
   random_trials: 500
-

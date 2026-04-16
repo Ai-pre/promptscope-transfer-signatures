@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 
 import pandas as pd
 
@@ -19,6 +20,7 @@ from src.utils.io import (
     load_prompts,
     resolve_path,
     save_dataframe,
+    save_json,
     set_seed,
 )
 
@@ -29,6 +31,85 @@ def parse_args():
     parser.add_argument("--limit-per-task", type=int, default=None)
     parser.add_argument("--limit-prompts", type=int, default=None)
     return parser.parse_args()
+
+
+def build_prompt_metadata_frame(prompts):
+    frame = pd.DataFrame(prompts).rename(columns={"id": "prompt_id"})
+    meta_columns = [
+        "prompt_id",
+        "group_id",
+        "variant",
+        "source",
+        "prompt_role",
+        "original_prompt_role",
+        "task_scope",
+        "provenance",
+        "source_title",
+        "source_url",
+        "paper_title",
+        "paper_url",
+        "source_note",
+        "optimized_for_tasks_json",
+        "source_datasets_json",
+        "is_paper_backed",
+    ]
+    available = [column for column in meta_columns if column in frame.columns]
+    return frame[available].drop_duplicates(subset=["prompt_id"]).reset_index(drop=True)
+
+
+def parse_json_task_list(value):
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return []
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            return [str(item).strip() for item in parsed if str(item).strip()]
+        return [stripped]
+    return [str(value).strip()]
+
+
+def build_seen_fit_table(task_summary, prompt_summary, seen_tasks):
+    seen_task_df = task_summary[task_summary["task"].isin(seen_tasks)].copy()
+    if seen_task_df.empty:
+        return prompt_summary.copy()
+
+    seen_stats = (
+        seen_task_df.groupby("prompt_id", dropna=False)["accuracy"]
+        .agg(seen_min_accuracy="min", seen_std_accuracy="std", seen_task_count="count")
+        .reset_index()
+    )
+    seen_fit = prompt_summary.merge(seen_stats, on="prompt_id", how="left")
+    seen_fit["seen_std_accuracy"] = seen_fit["seen_std_accuracy"].fillna(0.0)
+    seen_fit["seen_task_count"] = seen_fit["seen_task_count"].fillna(0).astype(int)
+
+    seen_task_set = set(seen_tasks)
+    overlaps = []
+    overlap_labels = []
+    alignment_flags = []
+    for row in seen_fit.itertuples(index=False):
+        optimized_tasks = parse_json_task_list(getattr(row, "optimized_for_tasks_json", "[]"))
+        overlap = sorted(seen_task_set.intersection(optimized_tasks))
+        overlaps.append(len(overlap))
+        overlap_labels.append(json.dumps(overlap, ensure_ascii=False))
+        alignment_flags.append(getattr(row, "task_scope", "") == "task_agnostic" or bool(overlap))
+
+    seen_fit["seen_task_overlap_count"] = overlaps
+    seen_fit["seen_task_overlap_json"] = overlap_labels
+    seen_fit["is_seen_task_aligned"] = alignment_flags
+    seen_fit = seen_fit.sort_values(
+        ["is_seen_task_aligned", "seen_mean_accuracy", "seen_min_accuracy", "overall_accuracy"],
+        ascending=[False, False, False, False],
+    ).reset_index(drop=True)
+    seen_fit["seen_fit_rank"] = seen_fit.index + 1
+    return seen_fit
 
 
 def main():
@@ -95,10 +176,20 @@ def main():
         seen_tasks=config["tasks"]["seen"],
         unseen_tasks=config["tasks"]["unseen"],
     )
+    prompt_metadata = build_prompt_metadata_frame(prompts)
+    task_summary = task_summary.merge(prompt_metadata, on=["prompt_id", "group_id", "variant", "source"], how="left")
+    prompt_summary = prompt_summary.merge(prompt_metadata, on=["prompt_id", "group_id", "variant", "source"], how="left")
+    seen_fit_summary = build_seen_fit_table(
+        task_summary=task_summary,
+        prompt_summary=prompt_summary,
+        seen_tasks=config["tasks"]["seen"],
+    )
 
     save_dataframe(sample_df, outputs_dir / "eval_results.parquet")
     save_dataframe(task_summary, outputs_dir / "eval_task_summary.parquet")
     save_dataframe(prompt_summary, outputs_dir / "eval_prompt_summary.parquet")
+    save_dataframe(seen_fit_summary, outputs_dir / "eval_seen_fit_summary.parquet")
+    save_json(outputs_dir / "eval_seen_fit_summary.json", seen_fit_summary.to_dict(orient="records"))
 
     print(f"Saved {len(sample_df)} sample-level evaluation rows to {outputs_dir}")
 

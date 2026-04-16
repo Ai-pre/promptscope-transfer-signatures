@@ -28,7 +28,7 @@ positions:
 base_prompt: "You are a helpful assistant."
 
 paths:
-  prompts: data/prompts.jsonl
+  prompts: data/prompts_paper_backed.jsonl
   datasets_dir: data/datasets
   outputs_dir: outputs/gpu_pilot
 

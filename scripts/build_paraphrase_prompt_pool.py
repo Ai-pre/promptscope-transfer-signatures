@@ -15,8 +15,8 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Build a prompt pool with 3 paraphrases per original prompt."
     )
-    parser.add_argument("--input", default="data/prompts.jsonl")
-    parser.add_argument("--output", default="data/prompts_paraphrase_pilot.jsonl")
+    parser.add_argument("--input", default="data/prompts_paper_backed.jsonl")
+    parser.add_argument("--output", default="data/prompts_paper_backed_paraphrase.jsonl")
     parser.add_argument("--num-paraphrases", type=int, default=3)
     parser.add_argument(
         "--limit-groups",
@@ -57,4 +57,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

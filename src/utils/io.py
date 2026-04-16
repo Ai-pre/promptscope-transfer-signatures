@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 from pathlib import Path
 
 import numpy as np
@@ -11,6 +12,7 @@ import yaml
 
 REQUIRED_PROMPT_FIELDS = {"id", "text", "source"}
 REQUIRED_SAMPLE_FIELDS = {"input", "label"}
+OPTIONAL_PROMPT_LIST_FIELDS = ("optimized_for_tasks", "source_datasets")
 
 
 def load_config(path):
@@ -75,10 +77,43 @@ def load_prompts(path):
         record = dict(prompt)
         record.setdefault("group_id", record["id"])
         record.setdefault("variant", "original")
+        for field_name in OPTIONAL_PROMPT_LIST_FIELDS:
+            record[field_name] = normalize_prompt_list_field(record.get(field_name))
+            record[f"{field_name}_json"] = json.dumps(record[field_name], ensure_ascii=False)
+        record.setdefault("prompt_role", "system")
+        record.setdefault("original_prompt_role", record["prompt_role"])
+        record.setdefault("task_scope", "task_specific" if record["optimized_for_tasks"] else "task_agnostic")
+        record.setdefault("provenance", "legacy_starter")
+        record.setdefault("source_title", "")
+        record.setdefault("source_url", "")
+        record.setdefault("paper_title", "")
+        record.setdefault("paper_url", "")
+        record.setdefault("source_note", "")
+        record["is_paper_backed"] = bool(record["source_url"] or record["paper_url"])
         record["prompt_length_chars"] = len(record["text"])
         record["prompt_length_words"] = len(record["text"].split())
         normalized.append(record)
     return normalized
+
+
+def normalize_prompt_list_field(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return []
+        if stripped.startswith("[") and stripped.endswith("]"):
+            try:
+                parsed = json.loads(stripped)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        return [piece.strip() for piece in re.split(r"[;,]", stripped) if piece.strip()]
+    return [str(value).strip()]
 
 
 def ensure_base_prompt_record(prompts, base_prompt: str):
@@ -89,6 +124,20 @@ def ensure_base_prompt_record(prompts, base_prompt: str):
         "group_id": "base_prompt",
         "variant": "original",
         "source": "base",
+        "source_title": "Neutral base prompt",
+        "source_url": "",
+        "paper_title": "",
+        "paper_url": "",
+        "provenance": "base",
+        "prompt_role": "system",
+        "original_prompt_role": "system",
+        "task_scope": "task_agnostic",
+        "optimized_for_tasks": [],
+        "optimized_for_tasks_json": "[]",
+        "source_datasets": [],
+        "source_datasets_json": "[]",
+        "source_note": "Neutral reference prompt used to compute delta_h.",
+        "is_paper_backed": False,
         "text": base_prompt,
         "prompt_length_chars": len(base_prompt),
         "prompt_length_words": len(base_prompt.split()),
@@ -162,4 +211,3 @@ def vector_rows_to_table(rows, vector_key: str):
         vectors.append(np.asarray(copied.pop(vector_key), dtype=np.float32))
         metadata.append(copied)
     return np.stack(vectors), pd.DataFrame(metadata)
-
