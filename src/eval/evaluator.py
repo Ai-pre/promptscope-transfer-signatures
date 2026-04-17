@@ -167,19 +167,19 @@ def summarize_prompt_metrics(sample_rows, seen_tasks, unseen_tasks):
     if sample_df.empty:
         return sample_df, sample_df
 
+    prompt_columns = [
+        "prompt_id",
+        "group_id",
+        "variant",
+        "source",
+        "prompt_text",
+        "prompt_length_chars",
+        "prompt_length_words",
+    ]
+
     task_summary = (
         sample_df.groupby(
-            [
-                "prompt_id",
-                "group_id",
-                "variant",
-                "source",
-                "prompt_text",
-                "prompt_length_chars",
-                "prompt_length_words",
-                "task",
-                "split",
-            ],
+            prompt_columns + ["task", "split"],
             dropna=False,
         )["correct"]
         .mean()
@@ -187,19 +187,8 @@ def summarize_prompt_metrics(sample_rows, seen_tasks, unseen_tasks):
     )
 
     prompt_rows = []
-    for _, group in task_summary.groupby(
-        [
-            "prompt_id",
-            "group_id",
-            "variant",
-            "source",
-            "prompt_text",
-            "prompt_length_chars",
-            "prompt_length_words",
-        ],
-        dropna=False,
-    ):
-        record = group.iloc[0].to_dict()
+    for prompt_key, group in task_summary.groupby(prompt_columns, dropna=False):
+        record = {column: value for column, value in zip(prompt_columns, prompt_key)}
         seen_acc = group.loc[group["task"].isin(seen_tasks), "accuracy"]
         unseen_acc = group.loc[group["task"].isin(unseen_tasks), "accuracy"]
         record["seen_mean_accuracy"] = float(seen_acc.mean()) if not seen_acc.empty else float("nan")
@@ -224,4 +213,3 @@ def summarize_prompt_metrics(sample_rows, seen_tasks, unseen_tasks):
     prompt_summary["sensitivity"] = prompt_summary["sensitivity"].fillna(0.0)
 
     return task_summary, prompt_summary
-

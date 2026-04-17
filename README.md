@@ -8,6 +8,7 @@ This repository implements an end-to-end pilot pipeline for testing whether tran
 - `scripts/extract_activation.py`: extracts hidden states and computes `delta_h = h(prompt) - h(base_prompt)`
 - `scripts/run_analysis.py`: computes similarity, stability, and transfer prediction baselines
 - `scripts/build_paper_backed_prompt_pool.py`: builds a paper-backed prompt pool from official repositories
+- `scripts/build_prompt_subsets.py`: builds filtered prompt pools for mixed vs. strict generalization runs
 - `data/prompts_paper_backed.jsonl`: default source-backed prompt pool with provenance metadata
 - `data/prompts.jsonl`: legacy starter pool kept for reference only
 - `data/datasets/*.json`: small schema examples for each task
@@ -58,12 +59,19 @@ The default configs now point to `data/prompts_paper_backed.jsonl`, which is bui
 
 ```bash
 python scripts/build_paper_backed_prompt_pool.py
+python scripts/build_prompt_subsets.py
 python scripts/run_eval.py
 python scripts/extract_activation.py
 python scripts/run_analysis.py
 ```
 
-The evaluation step also writes `eval_seen_fit_summary.parquet/json`, which ranks prompts by seen-task fit and shows whether their official source tasks overlap with the current seen-task split.
+The evaluation step also writes:
+
+- `eval_seen_fit_summary.parquet/json`: full prompt-variant ranking
+- `eval_seen_fit_originals.parquet/json`: original-only ranking
+- `eval_seen_fit_groups.parquet/json`: group-level ranking
+
+These files make it easier to separate clean general experiments from paraphrase-heavy stability runs.
 
 ## Download real benchmark data
 
@@ -172,3 +180,27 @@ This uses:
 - 10 prompt groups x 4 variants = 40 prompt variants
 - 50 samples per task
 - outputs in `outputs/gpu_stability_scaleup`
+
+## Clean generalization subsets
+
+To maximize interpretability, you can split the paper-backed pool into:
+
+- `data/prompts_paper_backed_mixed_seen_aligned.jsonl`: official prompts whose source task aligns with the seen split, plus task-agnostic prompts
+- `data/prompts_paper_backed_strict_system_seen_aligned.jsonl`: only genuine system prompts among the aligned subset
+
+Recommended runs:
+
+```bash
+python scripts/build_prompt_subsets.py
+export CUDA_VISIBLE_DEVICES=2
+
+python scripts/run_eval.py --config configs/config.gpu_general_mixed.yaml
+python scripts/extract_activation.py --config configs/config.gpu_general_mixed.yaml
+python scripts/run_analysis.py --config configs/config.gpu_general_mixed.yaml
+
+python scripts/run_eval.py --config configs/config.gpu_general_strict.yaml
+python scripts/extract_activation.py --config configs/config.gpu_general_strict.yaml
+python scripts/run_analysis.py --config configs/config.gpu_general_strict.yaml
+```
+
+Use the mixed run for the strongest signal search and the strict run as the cleaner sanity-check setting.

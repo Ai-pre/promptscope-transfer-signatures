@@ -104,12 +104,67 @@ def build_seen_fit_table(task_summary, prompt_summary, seen_tasks):
     seen_fit["seen_task_overlap_count"] = overlaps
     seen_fit["seen_task_overlap_json"] = overlap_labels
     seen_fit["is_seen_task_aligned"] = alignment_flags
-    seen_fit = seen_fit.sort_values(
+    return rank_seen_fit_table(seen_fit)
+
+
+def rank_seen_fit_table(frame: pd.DataFrame):
+    ranked = frame.sort_values(
         ["is_seen_task_aligned", "seen_mean_accuracy", "seen_min_accuracy", "overall_accuracy"],
         ascending=[False, False, False, False],
     ).reset_index(drop=True)
-    seen_fit["seen_fit_rank"] = seen_fit.index + 1
-    return seen_fit
+    ranked["seen_fit_rank"] = ranked.index + 1
+    return ranked
+
+
+def build_original_seen_fit_table(seen_fit_summary: pd.DataFrame):
+    originals = seen_fit_summary[seen_fit_summary["variant"] == "original"].copy()
+    if originals.empty:
+        return originals
+    return rank_seen_fit_table(originals)
+
+
+def build_group_seen_fit_table(seen_fit_summary: pd.DataFrame):
+    if seen_fit_summary.empty:
+        return seen_fit_summary.copy()
+
+    rows = []
+    for group_id, group in seen_fit_summary.groupby("group_id", dropna=False):
+        original_rows = group[group["variant"] == "original"]
+        representative = original_rows.iloc[0] if not original_rows.empty else group.iloc[0]
+        rows.append(
+            {
+                "group_id": group_id,
+                "representative_prompt_id": representative["prompt_id"],
+                "source": representative["source"],
+                "source_title": representative.get("source_title"),
+                "source_url": representative.get("source_url"),
+                "paper_title": representative.get("paper_title"),
+                "paper_url": representative.get("paper_url"),
+                "provenance": representative.get("provenance"),
+                "task_scope": representative.get("task_scope"),
+                "prompt_role": representative.get("prompt_role"),
+                "original_prompt_role": representative.get("original_prompt_role"),
+                "optimized_for_tasks_json": representative.get("optimized_for_tasks_json"),
+                "source_datasets_json": representative.get("source_datasets_json"),
+                "is_paper_backed": bool(representative.get("is_paper_backed", False)),
+                "num_variants": int(len(group)),
+                "variants_json": json.dumps(sorted(group["variant"].astype(str).unique().tolist()), ensure_ascii=False),
+                "prompt_ids_json": json.dumps(group["prompt_id"].astype(str).tolist(), ensure_ascii=False),
+                "seen_mean_accuracy": float(group["seen_mean_accuracy"].mean()),
+                "unseen_mean_accuracy": float(group["unseen_mean_accuracy"].mean()),
+                "overall_accuracy": float(group["overall_accuracy"].mean()),
+                "transfer_gap": float(group["transfer_gap"].mean()),
+                "sensitivity": float(group["sensitivity"].mean()),
+                "seen_min_accuracy": float(group["seen_min_accuracy"].min()),
+                "seen_std_accuracy": float(group["seen_std_accuracy"].mean()),
+                "seen_task_count": int(group["seen_task_count"].max()),
+                "seen_task_overlap_count": int(group["seen_task_overlap_count"].max()),
+                "seen_task_overlap_json": representative.get("seen_task_overlap_json", "[]"),
+                "is_seen_task_aligned": bool(group["is_seen_task_aligned"].all()),
+            }
+        )
+
+    return rank_seen_fit_table(pd.DataFrame(rows))
 
 
 def main():
@@ -184,12 +239,18 @@ def main():
         prompt_summary=prompt_summary,
         seen_tasks=config["tasks"]["seen"],
     )
+    seen_fit_originals = build_original_seen_fit_table(seen_fit_summary)
+    seen_fit_groups = build_group_seen_fit_table(seen_fit_summary)
 
     save_dataframe(sample_df, outputs_dir / "eval_results.parquet")
     save_dataframe(task_summary, outputs_dir / "eval_task_summary.parquet")
     save_dataframe(prompt_summary, outputs_dir / "eval_prompt_summary.parquet")
     save_dataframe(seen_fit_summary, outputs_dir / "eval_seen_fit_summary.parquet")
     save_json(outputs_dir / "eval_seen_fit_summary.json", seen_fit_summary.to_dict(orient="records"))
+    save_dataframe(seen_fit_originals, outputs_dir / "eval_seen_fit_originals.parquet")
+    save_json(outputs_dir / "eval_seen_fit_originals.json", seen_fit_originals.to_dict(orient="records"))
+    save_dataframe(seen_fit_groups, outputs_dir / "eval_seen_fit_groups.parquet")
+    save_json(outputs_dir / "eval_seen_fit_groups.json", seen_fit_groups.to_dict(orient="records"))
 
     print(f"Saved {len(sample_df)} sample-level evaluation rows to {outputs_dir}")
 

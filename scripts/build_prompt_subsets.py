@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+import argparse
+import json
+
+from _bootstrap import bootstrap_project_root
+
+bootstrap_project_root()
+
+from src.utils.io import ensure_dir, load_config, load_prompts, resolve_path
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Build filtered prompt pools for strict and mixed transfer experiments."
+    )
+    parser.add_argument("--config", default="configs/config.yaml")
+    parser.add_argument("--input", default=None, help="Optional prompt file override.")
+    parser.add_argument("--output-dir", default="data")
+    return parser.parse_args()
+
+
+def write_jsonl(path, records):
+    ensure_dir(path.parent)
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def intersects_seen_tasks(record: dict, seen_tasks: set[str]) -> bool:
+    optimized = set(record.get("optimized_for_tasks", []))
+    return bool(seen_tasks & optimized)
+
+
+def filter_records(records, *, predicate):
+    return [record for record in records if predicate(record)]
+
+
+def main():
+    args = parse_args()
+    config = load_config(args.config)
+    project_root = config["_project_root"]
+    prompt_path = resolve_path(
+        project_root,
+        args.input if args.input is not None else config["paths"]["prompts"],
+    )
+    output_dir = ensure_dir(resolve_path(project_root, args.output_dir))
+
+    records = [record for record in load_prompts(prompt_path) if record["source"] != "base"]
+    seen_tasks = set(config["tasks"]["seen"])
+
+    subsets = {
+        "prompts_paper_backed_original_only.jsonl": filter_records(
+            records,
+            predicate=lambda record: record.get("variant", "original") == "original" and bool(record.get("is_paper_backed", False)),
+        ),
+        "prompts_paper_backed_mixed_seen_aligned.jsonl": filter_records(
+            records,
+            predicate=lambda record: record.get("variant", "original") == "original"
+            and bool(record.get("is_paper_backed", False))
+            and (record.get("task_scope") == "task_agnostic" or intersects_seen_tasks(record, seen_tasks)),
+        ),
+        "prompts_paper_backed_strict_system_only.jsonl": filter_records(
+            records,
+            predicate=lambda record: record.get("variant", "original") == "original"
+            and bool(record.get("is_paper_backed", False))
+            and record.get("original_prompt_role") == "system",
+        ),
+        "prompts_paper_backed_strict_system_seen_aligned.jsonl": filter_records(
+            records,
+            predicate=lambda record: record.get("variant", "original") == "original"
+            and bool(record.get("is_paper_backed", False))
+            and record.get("original_prompt_role") == "system"
+            and (record.get("task_scope") == "task_agnostic" or intersects_seen_tasks(record, seen_tasks)),
+        ),
+    }
+
+    for file_name, subset in subsets.items():
+        output_path = output_dir / file_name
+        write_jsonl(output_path, subset)
+        print(f"[build_prompt_subsets] wrote {len(subset)} prompts to {output_path}", flush=True)
+
+
+if __name__ == "__main__":
+    main()
