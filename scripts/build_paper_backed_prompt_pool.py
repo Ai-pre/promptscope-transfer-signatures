@@ -23,6 +23,9 @@ PROMPTWIZARD_PAPER_URL = "https://arxiv.org/abs/2405.18369"
 COT_PAPER_URL = "https://arxiv.org/abs/2201.11903"
 ZS_COT_PAPER_URL = "https://arxiv.org/abs/2205.11916"
 LEAST_TO_MOST_PAPER_URL = "https://arxiv.org/abs/2205.10625"
+GENERATED_KNOWLEDGE_PAPER_URL = "https://arxiv.org/abs/2110.08387"
+EXPERT_PROMPTING_PAPER_URL = "https://arxiv.org/abs/2305.14688"
+EMOTION_PROMPT_PAPER_URL = "https://arxiv.org/abs/2307.11760"
 
 META_PROMPTING_FILES = {
     "meta_prompting_meta_expert": {
@@ -228,6 +231,28 @@ def build_promptbench_records():
             original_prompt_role="few_shot_user_prefix",
             source_note="Official PromptBench least-to-most prompt for GSM8K, rendered as a system prompt in this repository.",
         ),
+        make_promptbench_record(
+            prompt_id="promptbench_generated_knowledge_csqa",
+            text=method_prompts["generated_knowledge"]["csqa"],
+            source_url=PROMPTBENCH_METHODS_URL,
+            source_title="PromptBench generated-knowledge prompt for CSQA",
+            paper_title="Generated Knowledge Prompting for Commonsense Reasoning",
+            paper_url=GENERATED_KNOWLEDGE_PAPER_URL,
+            optimized_for_tasks=["csqa"],
+            original_prompt_role="knowledge_generation_prefix",
+            source_note="Official PromptBench generated-knowledge prompt for CSQA, rendered as a system prompt in this repository.",
+        ),
+        make_promptbench_record(
+            prompt_id="promptbench_expert_prompting_meta",
+            text=method_prompts["expert_prompting"],
+            source_url=PROMPTBENCH_METHODS_URL,
+            source_title="PromptBench expert-prompting meta prompt",
+            paper_title="ExpertPrompting: Instructing Large Language Models to be Distinguished Experts",
+            paper_url=EXPERT_PROMPTING_PAPER_URL,
+            optimized_for_tasks=[],
+            original_prompt_role="meta_instruction",
+            source_note="Official PromptBench expert-prompting meta prompt, rendered as a standalone system prompt in this repository.",
+        ),
     ]
 
     for task_name, output_range in output_ranges.items():
@@ -259,6 +284,21 @@ def build_promptbench_records():
                 optimized_for_tasks=[task_name],
                 original_prompt_role="user_suffix",
                 source_note="Derived from PromptBench's Base.query answer-format suffix, rendered as a system prompt in this repository.",
+            )
+        )
+
+    for prompt_index, prompt_text in enumerate(method_prompts["emotion_prompt"]["prompts"], start=1):
+        records.append(
+            make_promptbench_record(
+                prompt_id=f"promptbench_emotion_prompt_{prompt_index:02d}",
+                text=prompt_text,
+                source_url=PROMPTBENCH_METHODS_URL,
+                source_title=f"PromptBench emotion prompt #{prompt_index}",
+                paper_title="EmotionPrompt: Leveraging Psychology for Large Language Models Enhancement via Emotional Stimulus",
+                paper_url=EMOTION_PROMPT_PAPER_URL,
+                optimized_for_tasks=[],
+                original_prompt_role="user_suffix",
+                source_note="Official PromptBench emotion prompt, rendered as a standalone system prompt in this repository.",
             )
         )
 
