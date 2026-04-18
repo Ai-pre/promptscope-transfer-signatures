@@ -1,0 +1,40 @@
+model_name: Qwen/Qwen2.5-7B-Instruct
+torch_dtype: float16
+device_map: null
+seed: 42
+
+tasks:
+  seen:
+    - gsm8k
+    - csqa
+  unseen:
+    - svamp
+    - boolq
+
+batch_size: 2
+max_new_tokens: 96
+limit_per_task: 100
+limit_prompts: null
+
+layers:
+  - 4
+  - 12
+  - -1
+
+positions:
+  - system_last_token
+  - first_user_token
+
+base_prompt: "You are a helpful assistant."
+
+paths:
+  prompts: data/prompts_paper_backed_mixed_seen_aligned_clean.jsonl
+  datasets_dir: data/datasets
+  outputs_dir: outputs/gpu_general_mixed_clean
+
+analysis:
+  ridge_alpha: 1.0
+  logistic_c: 1.0
+  n_splits: 5
+  top_k: 5
+  random_trials: 500

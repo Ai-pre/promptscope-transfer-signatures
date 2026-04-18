@@ -10,6 +10,7 @@ from _bootstrap import bootstrap_project_root
 bootstrap_project_root()
 
 from src.analysis.analyzer import (
+    augment_with_seen_score,
     build_slice_analysis_table,
     build_baseline_matrix,
     build_pairwise_similarity_table,
@@ -30,7 +31,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def format_report(summary, feature_keys_count, prompt_count, best_slice=None):
+def format_report(summary, feature_keys_count, prompt_count, best_slice=None, best_hybrid_slice=None):
     lines = [
         "# Final Report",
         "",
@@ -40,6 +41,8 @@ def format_report(summary, feature_keys_count, prompt_count, best_slice=None):
         f"- Activation feature blocks (task x layer x position): {feature_keys_count}",
         f"- Activation ridge R^2: {summary['prediction']['activation_ridge_r2']:.4f}",
         f"- Activation logistic accuracy: {summary['prediction']['activation_logistic_accuracy']:.4f}",
+        f"- Hybrid (seen + activation) ridge R^2: {summary['prediction']['hybrid_seen_activation_ridge_r2']:.4f}",
+        f"- Hybrid (seen + activation) logistic accuracy: {summary['prediction']['hybrid_seen_activation_logistic_accuracy']:.4f}",
         "",
         "## Baselines",
         "",
@@ -49,6 +52,7 @@ def format_report(summary, feature_keys_count, prompt_count, best_slice=None):
         "## Selection",
         "",
         f"- Activation top-k unseen accuracy: {summary['selection']['activation_top_k_unseen_accuracy']:.4f}",
+        f"- Hybrid (seen + activation) top-k unseen accuracy: {summary['selection']['hybrid_seen_activation_top_k_unseen_accuracy']:.4f}",
         f"- Seen-accuracy top-k unseen accuracy: {summary['selection']['seen_accuracy_top_k_unseen_accuracy']:.4f}",
         f"- Random top-k unseen accuracy: {summary['selection']['random_top_k_unseen_accuracy']:.4f}",
         "",
@@ -68,6 +72,19 @@ def format_report(summary, feature_keys_count, prompt_count, best_slice=None):
                 f"- Position: {best_slice['position']}",
                 f"- Slice ridge R^2: {best_slice['activation_ridge_r2']:.4f}",
                 f"- Slice top-k unseen accuracy: {best_slice['activation_top_k_unseen_accuracy']:.4f}",
+                "",
+            ]
+        )
+    if best_hybrid_slice is not None:
+        lines.extend(
+            [
+                "## Best Hybrid Slice",
+                "",
+                f"- Slice type: {best_hybrid_slice['slice_type']}",
+                f"- Layer: {best_hybrid_slice['layer']}",
+                f"- Position: {best_hybrid_slice['position']}",
+                f"- Hybrid slice ridge R^2: {best_hybrid_slice['hybrid_activation_ridge_r2']:.4f}",
+                f"- Hybrid slice top-k unseen accuracy: {best_hybrid_slice['hybrid_activation_top_k_unseen_accuracy']:.4f}",
                 "",
             ]
         )
@@ -114,6 +131,17 @@ def main():
 
     prediction_metrics = evaluate_prediction_block(
         prompt_features,
+        analysis_table,
+        alpha=config["analysis"]["ridge_alpha"],
+        c_value=config["analysis"]["logistic_c"],
+        n_splits=config["analysis"]["n_splits"],
+        top_k=config["analysis"]["top_k"],
+        random_trials=config["analysis"]["random_trials"],
+        random_state=config.get("seed", 42),
+    )
+    hybrid_features = augment_with_seen_score(prompt_features, analysis_table)
+    hybrid_prediction_metrics = evaluate_prediction_block(
+        hybrid_features,
         analysis_table,
         alpha=config["analysis"]["ridge_alpha"],
         c_value=config["analysis"]["logistic_c"],
@@ -170,6 +198,7 @@ def main():
         top_k=config["analysis"]["top_k"],
         random_trials=config["analysis"]["random_trials"],
         random_state=config.get("seed", 42),
+        include_seen_hybrid=True,
     )
     save_dataframe(slice_analysis, results_dir / "slice_analysis.parquet")
     save_json(
@@ -184,17 +213,27 @@ def main():
             ascending=[False, False],
         )
         best_slice = ranked.iloc[0].to_dict()
+    best_hybrid_slice = None
+    if not slice_analysis.empty and "hybrid_activation_top_k_unseen_accuracy" in slice_analysis.columns:
+        hybrid_ranked = slice_analysis.sort_values(
+            ["hybrid_activation_top_k_unseen_accuracy", "hybrid_activation_ridge_r2"],
+            ascending=[False, False],
+        )
+        best_hybrid_slice = hybrid_ranked.iloc[0].to_dict()
 
     summary = {
         "prediction": {
             "activation_ridge_r2": prediction_metrics["activation_ridge_r2"],
             "activation_logistic_accuracy": prediction_metrics["activation_logistic_accuracy"],
+            "hybrid_seen_activation_ridge_r2": hybrid_prediction_metrics["activation_ridge_r2"],
+            "hybrid_seen_activation_logistic_accuracy": hybrid_prediction_metrics["activation_logistic_accuracy"],
             "seen_accuracy_ridge_r2": float(seen_r2),
             "prompt_meta_ridge_r2": float(prompt_meta_r2),
             "apo_rank_ridge_r2": float(apo_r2),
         },
         "selection": {
             "activation_top_k_unseen_accuracy": prediction_metrics["activation_top_k_unseen_accuracy"],
+            "hybrid_seen_activation_top_k_unseen_accuracy": hybrid_prediction_metrics["activation_top_k_unseen_accuracy"],
             "seen_accuracy_top_k_unseen_accuracy": prediction_metrics["seen_accuracy_top_k_unseen_accuracy"],
             "random_top_k_unseen_accuracy": prediction_metrics["random_top_k_unseen_accuracy"],
         },
@@ -203,6 +242,7 @@ def main():
             "mean_activation_cosine": float(stability_df["activation_cosine"].mean()) if not stability_df.empty else float("nan"),
         },
         "best_slice": best_slice,
+        "best_hybrid_slice": best_hybrid_slice,
     }
 
     write_analysis_summary(results_dir / "analysis_summary.json", summary)
@@ -213,6 +253,7 @@ def main():
             feature_keys_count=len(feature_keys),
             prompt_count=len(prompt_meta),
             best_slice=best_slice,
+            best_hybrid_slice=best_hybrid_slice,
         ),
     )
     save_dataframe(analysis_table, results_dir / "analysis_prompt_table.parquet")

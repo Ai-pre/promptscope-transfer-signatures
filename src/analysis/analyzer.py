@@ -141,6 +141,11 @@ def merge_prompt_features_with_eval(prompt_meta, prompt_features, eval_prompt_su
     )
 
 
+def augment_with_seen_score(prompt_features, analysis_table):
+    seen_score = analysis_table["seen_mean_accuracy"].to_numpy(dtype=np.float64).reshape(-1, 1)
+    return np.hstack([prompt_features, seen_score])
+
+
 def compute_paraphrase_stability(prompt_meta, prompt_features, eval_prompt_summary=None):
     rows = []
     prompt_index = {row["prompt_id"]: idx for idx, row in prompt_meta.iterrows()}
@@ -294,6 +299,7 @@ def build_slice_analysis_table(
     top_k: int,
     random_trials: int,
     random_state: int = 42,
+    include_seen_hybrid: bool = False,
 ):
     rows = []
     seen_df = activation_summary_df[activation_summary_df["task"].isin(tasks)].copy()
@@ -337,15 +343,34 @@ def build_slice_analysis_table(
             random_trials=random_trials,
             random_state=random_state,
         )
-        rows.append(
-            {
-                "slice_type": slice_type,
-                "layer": filters.get("layer"),
-                "position": filters.get("position"),
-                "feature_blocks": len(feature_keys),
-                **metrics,
-            }
+        row = {
+            "slice_type": slice_type,
+            "layer": filters.get("layer"),
+            "position": filters.get("position"),
+            "feature_blocks": len(feature_keys),
+            **metrics,
         )
+        if include_seen_hybrid:
+            hybrid_features = augment_with_seen_score(slice_features, slice_table)
+            hybrid_metrics = evaluate_prediction_block(
+                hybrid_features,
+                slice_table,
+                alpha=alpha,
+                c_value=c_value,
+                n_splits=n_splits,
+                top_k=top_k,
+                random_trials=random_trials,
+                random_state=random_state,
+            )
+            row.update(
+                {
+                    "hybrid_activation_ridge_r2": hybrid_metrics["activation_ridge_r2"],
+                    "hybrid_activation_logistic_accuracy": hybrid_metrics["activation_logistic_accuracy"],
+                    "hybrid_activation_top_k_unseen_accuracy": hybrid_metrics["activation_top_k_unseen_accuracy"],
+                    "hybrid_feature_dim": hybrid_metrics["feature_dim"],
+                }
+            )
+        rows.append(row)
 
     return pd.DataFrame(rows)
 

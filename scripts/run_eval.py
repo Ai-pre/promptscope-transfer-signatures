@@ -52,6 +52,11 @@ def build_prompt_metadata_frame(prompts):
         "optimized_for_tasks_json",
         "source_datasets_json",
         "is_paper_backed",
+        "principle_family",
+        "principle_components_json",
+        "complexity_level",
+        "hypothesis_role",
+        "contrast_group",
     ]
     available = [column for column in meta_columns if column in frame.columns]
     return frame[available].drop_duplicates(subset=["prompt_id"]).reset_index(drop=True)

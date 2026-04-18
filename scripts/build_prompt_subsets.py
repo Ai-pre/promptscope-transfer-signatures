@@ -32,6 +32,20 @@ def intersects_seen_tasks(record: dict, seen_tasks: set[str]) -> bool:
     return bool(seen_tasks & optimized)
 
 
+def has_suspicious_text_artifacts(text: str) -> bool:
+    if "\ufffd" in text:
+        return True
+    for char in text:
+        code = ord(char)
+        if 0x1100 <= code <= 0x11FF or 0x3130 <= code <= 0x318F or 0xAC00 <= code <= 0xD7AF:
+            return True
+    return False
+
+
+def is_clean_prompt(record: dict) -> bool:
+    return not has_suspicious_text_artifacts(record.get("text", ""))
+
+
 def filter_records(records, *, predicate):
     return [record for record in records if predicate(record)]
 
@@ -71,6 +85,34 @@ def main():
             predicate=lambda record: record.get("variant", "original") == "original"
             and bool(record.get("is_paper_backed", False))
             and record.get("original_prompt_role") == "system"
+            and (record.get("task_scope") == "task_agnostic" or intersects_seen_tasks(record, seen_tasks)),
+        ),
+        "prompts_paper_backed_original_only_clean.jsonl": filter_records(
+            records,
+            predicate=lambda record: record.get("variant", "original") == "original"
+            and bool(record.get("is_paper_backed", False))
+            and is_clean_prompt(record),
+        ),
+        "prompts_paper_backed_mixed_seen_aligned_clean.jsonl": filter_records(
+            records,
+            predicate=lambda record: record.get("variant", "original") == "original"
+            and bool(record.get("is_paper_backed", False))
+            and is_clean_prompt(record)
+            and (record.get("task_scope") == "task_agnostic" or intersects_seen_tasks(record, seen_tasks)),
+        ),
+        "prompts_paper_backed_strict_system_only_clean.jsonl": filter_records(
+            records,
+            predicate=lambda record: record.get("variant", "original") == "original"
+            and bool(record.get("is_paper_backed", False))
+            and record.get("original_prompt_role") == "system"
+            and is_clean_prompt(record),
+        ),
+        "prompts_paper_backed_strict_system_seen_aligned_clean.jsonl": filter_records(
+            records,
+            predicate=lambda record: record.get("variant", "original") == "original"
+            and bool(record.get("is_paper_backed", False))
+            and record.get("original_prompt_role") == "system"
+            and is_clean_prompt(record)
             and (record.get("task_scope") == "task_agnostic" or intersects_seen_tasks(record, seen_tasks)),
         ),
     }
