@@ -349,7 +349,7 @@ def build_slice_analysis_table(
             "position": filters.get("position"),
             "feature_blocks": len(feature_keys),
             **metrics,
-        )
+        }
         if include_seen_hybrid:
             hybrid_features = augment_with_seen_score(slice_features, slice_table)
             hybrid_metrics = evaluate_prediction_block(
