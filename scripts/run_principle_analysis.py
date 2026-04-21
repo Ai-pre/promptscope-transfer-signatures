@@ -175,6 +175,19 @@ def build_named_contrasts(prompt_table):
         ("expert_reasoning_format_verify_vs_expert_reasoning_format", "principle_expert_reasoning_format_verify", "principle_expert_reasoning_format"),
         ("verbose_control_vs_lightweight_main", "principle_verbose_expert_reasoning_format", "principle_expert_reasoning_format"),
         ("multiagent_control_vs_lightweight_main", "principle_multiagent_scaffold", "principle_expert_reasoning_format"),
+        ("careful_vs_plain", "principle2_careful", "principle2_plain"),
+        ("format_vs_plain_refined", "principle2_format_only", "principle2_plain"),
+        ("careful_format_vs_plain", "principle2_careful_format", "principle2_plain"),
+        ("check_vs_plain", "principle2_check_only", "principle2_plain"),
+        ("careful_check_vs_careful", "principle2_careful_check", "principle2_careful"),
+        ("careful_format_check_vs_careful_format", "principle2_careful_format_check", "principle2_careful_format"),
+        ("concise_format_vs_format", "principle2_concise_format", "principle2_format_only"),
+        ("soft_reason_vs_plain", "principle2_soft_reason", "principle2_plain"),
+        ("soft_reason_format_vs_format", "principle2_soft_reason_format", "principle2_format_only"),
+        ("hard_reason_vs_plain_refined", "principle2_hard_reason", "principle2_plain"),
+        ("strong_expert_vs_plain_refined", "principle2_strong_expert", "principle2_plain"),
+        ("verbose_control_vs_careful_format", "principle2_verbose_control", "principle2_careful_format"),
+        ("multiagent_control_vs_careful_format", "principle2_multiagent_control", "principle2_careful_format"),
     ]
 
     rows = []
