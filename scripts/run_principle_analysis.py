@@ -312,9 +312,15 @@ def main():
         layer=slice_layer,
         position=slice_position,
     )
-    principle_mask = principle_table["source"] == "principle_probe"
+    principle_prompt_ids = set(principle_prompt_meta["prompt_id"].tolist())
+    principle_mask = principle_table["prompt_id"].isin(principle_prompt_ids)
     principle_features = principle_features[principle_mask.to_numpy()]
     principle_table = principle_table[principle_mask].reset_index(drop=True)
+    if principle_table.empty:
+        raise ValueError(
+            "No principle prompts were found in the selected run outputs. "
+            "Check that the config prompts file matches the eval/activation outputs."
+        )
     reference_features, _, reference_table, _ = build_slice_feature_table(
         reference_artifacts["activation_summary"],
         reference_artifacts["summary_vectors"],
