@@ -188,6 +188,17 @@ def build_named_contrasts(prompt_table):
         ("strong_expert_vs_plain_refined", "principle2_strong_expert", "principle2_plain"),
         ("verbose_control_vs_careful_format", "principle2_verbose_control", "principle2_careful_format"),
         ("multiagent_control_vs_careful_format", "principle2_multiagent_control", "principle2_careful_format"),
+        ("boundary_concise_vs_plain", "principle3_concise", "principle3_plain"),
+        ("boundary_careful_vs_plain", "principle3_careful", "principle3_plain"),
+        ("boundary_check_vs_plain", "principle3_check", "principle3_plain"),
+        ("boundary_concise_format_vs_plain", "principle3_concise_format", "principle3_plain"),
+        ("boundary_careful_format_vs_plain", "principle3_careful_format", "principle3_plain"),
+        ("boundary_careful_check_vs_careful", "principle3_careful_check", "principle3_careful"),
+        ("boundary_careful_format_check_vs_careful_format", "principle3_careful_format_check", "principle3_careful_format"),
+        ("boundary_soft_reason_vs_plain", "principle3_soft_reason", "principle3_plain"),
+        ("boundary_soft_reason_format_vs_concise_format", "principle3_soft_reason_format", "principle3_concise_format"),
+        ("boundary_concise_careful_format_vs_concise_format", "principle3_concise_careful_format", "principle3_concise_format"),
+        ("boundary_concise_careful_check_vs_careful_check", "principle3_concise_careful_check", "principle3_careful_check"),
     ]
 
     rows = []
