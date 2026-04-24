@@ -15,6 +15,9 @@ Run the clean paper-backed reference set and the boundary probe set on two stron
 - `meta-llama/Llama-3.1-8B-Instruct`
 - `google/gemma-2-9b-it`
 - If gated access is unavailable on the server, use the ungated fallback `mistralai/Mistral-7B-Instruct-v0.3`.
+- If you want a closer family-level substitute for gated checkpoints, use open derivatives:
+  - `NousResearch/Hermes-3-Llama-3.1-8B` for the Llama family
+  - `FuseAI/FuseChat-Gemma-2-9B-SFT` for the Gemma family
 
 Suggested order:
 
@@ -29,6 +32,10 @@ Configs:
 - `configs/config.llama31_principle_boundary.yaml`
 - `configs/config.mistral7_general_mixed_clean.yaml`
 - `configs/config.mistral7_principle_boundary.yaml`
+- `configs/config.hermes3_general_mixed_clean.yaml`
+- `configs/config.hermes3_principle_boundary.yaml`
+- `configs/config.fusechat_gemma_general_mixed_clean.yaml`
+- `configs/config.fusechat_gemma_principle_boundary.yaml`
 
 Outputs:
 
@@ -47,6 +54,16 @@ Outputs:
 - `outputs/mistral7_principle_boundary/principle_results/principle_summary.json`
 - `outputs/mistral7_principle_boundary/principle_results/principle_component_effects.json`
 - `outputs/mistral7_principle_boundary/principle_results/principle_contrasts.json`
+- `outputs/hermes3_general_mixed_clean/results/analysis_summary.json`
+- `outputs/hermes3_general_mixed_clean/results/slice_analysis.json`
+- `outputs/hermes3_principle_boundary/principle_results/principle_summary.json`
+- `outputs/hermes3_principle_boundary/principle_results/principle_component_effects.json`
+- `outputs/hermes3_principle_boundary/principle_results/principle_contrasts.json`
+- `outputs/fusechat_gemma_general_mixed_clean/results/analysis_summary.json`
+- `outputs/fusechat_gemma_general_mixed_clean/results/slice_analysis.json`
+- `outputs/fusechat_gemma_principle_boundary/principle_results/principle_summary.json`
+- `outputs/fusechat_gemma_principle_boundary/principle_results/principle_component_effects.json`
+- `outputs/fusechat_gemma_principle_boundary/principle_results/principle_contrasts.json`
 
 Success signal:
 
