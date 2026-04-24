@@ -14,6 +14,7 @@ Run the clean paper-backed reference set and the boundary probe set on two stron
 
 - `meta-llama/Llama-3.1-8B-Instruct`
 - `google/gemma-2-9b-it`
+- If gated access is unavailable on the server, use the ungated fallback `mistralai/Mistral-7B-Instruct-v0.3`.
 
 Suggested order:
 
@@ -26,6 +27,8 @@ Configs:
 - `configs/config.gemma2_principle_boundary.yaml`
 - `configs/config.llama31_general_mixed_clean.yaml`
 - `configs/config.llama31_principle_boundary.yaml`
+- `configs/config.mistral7_general_mixed_clean.yaml`
+- `configs/config.mistral7_principle_boundary.yaml`
 
 Outputs:
 
@@ -39,6 +42,11 @@ Outputs:
 - `outputs/llama31_principle_boundary/principle_results/principle_summary.json`
 - `outputs/llama31_principle_boundary/principle_results/principle_component_effects.json`
 - `outputs/llama31_principle_boundary/principle_results/principle_contrasts.json`
+- `outputs/mistral7_general_mixed_clean/results/analysis_summary.json`
+- `outputs/mistral7_general_mixed_clean/results/slice_analysis.json`
+- `outputs/mistral7_principle_boundary/principle_results/principle_summary.json`
+- `outputs/mistral7_principle_boundary/principle_results/principle_component_effects.json`
+- `outputs/mistral7_principle_boundary/principle_results/principle_contrasts.json`
 
 Success signal:
 
