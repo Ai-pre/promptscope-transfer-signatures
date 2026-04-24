@@ -10,15 +10,35 @@ Move the project from a strong pilot to a paper-grade claim by adding one test f
 
 ## Experiment 1: Cross-Model Reproducibility
 
-Run the clean paper-backed reference set and the boundary probe set on `microsoft/Phi-3.5-mini-instruct`.
+Run the clean paper-backed reference set and the boundary probe set on two stronger instruction-tuned families:
+
+- `meta-llama/Llama-3.1-8B-Instruct`
+- `google/gemma-2-9b-it`
+
+Suggested order:
+
+1. Run Gemma first because it is usually easier to access from Hugging Face.
+2. Run Llama next if the server account has accepted the Meta license / token gate.
+
+Configs:
+
+- `configs/config.gemma2_general_mixed_clean.yaml`
+- `configs/config.gemma2_principle_boundary.yaml`
+- `configs/config.llama31_general_mixed_clean.yaml`
+- `configs/config.llama31_principle_boundary.yaml`
 
 Outputs:
 
-- `outputs/phi35_general_mixed_clean/results/analysis_summary.json`
-- `outputs/phi35_general_mixed_clean/results/slice_analysis.json`
-- `outputs/phi35_principle_boundary/principle_results/principle_summary.json`
-- `outputs/phi35_principle_boundary/principle_results/principle_component_effects.json`
-- `outputs/phi35_principle_boundary/principle_results/principle_contrasts.json`
+- `outputs/gemma2_general_mixed_clean/results/analysis_summary.json`
+- `outputs/gemma2_general_mixed_clean/results/slice_analysis.json`
+- `outputs/gemma2_principle_boundary/principle_results/principle_summary.json`
+- `outputs/gemma2_principle_boundary/principle_results/principle_component_effects.json`
+- `outputs/gemma2_principle_boundary/principle_results/principle_contrasts.json`
+- `outputs/llama31_general_mixed_clean/results/analysis_summary.json`
+- `outputs/llama31_general_mixed_clean/results/slice_analysis.json`
+- `outputs/llama31_principle_boundary/principle_results/principle_summary.json`
+- `outputs/llama31_principle_boundary/principle_results/principle_component_effects.json`
+- `outputs/llama31_principle_boundary/principle_results/principle_contrasts.json`
 
 Success signal:
 
