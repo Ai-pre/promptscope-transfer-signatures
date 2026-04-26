@@ -1,6 +1,6 @@
 model_name: meta-llama/Llama-3.1-8B-Instruct
 torch_dtype: float16
-device_map: null
+device_map: auto
 seed: 42
 
 tasks:

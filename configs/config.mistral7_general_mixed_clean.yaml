@@ -1,6 +1,6 @@
 model_name: mistralai/Mistral-7B-Instruct-v0.3
 torch_dtype: float16
-device_map: null
+device_map: auto
 seed: 42
 
 tasks:

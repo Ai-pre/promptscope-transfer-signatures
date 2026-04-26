@@ -1,6 +1,6 @@
 model_name: microsoft/Phi-3.5-mini-instruct
 torch_dtype: float16
-device_map: null
+device_map: auto
 seed: 42
 
 tasks:

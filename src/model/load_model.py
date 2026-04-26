@@ -90,6 +90,10 @@ def load_model(model_name: str, torch_dtype: str = "auto", device_map: str | Non
         "torch_dtype": runtime_dtype,
         "trust_remote_code": True,
     }
+    if has_accelerate():
+        # Avoid loading a full CPU copy before moving weights, which can spike
+        # host RAM on multi-billion-parameter checkpoints.
+        model_kwargs["low_cpu_mem_usage"] = True
     if runtime_device_map is not None:
         model_kwargs["device_map"] = runtime_device_map
 
