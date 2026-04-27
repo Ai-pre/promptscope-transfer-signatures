@@ -8,14 +8,40 @@ def build_messages(system_prompt: str, user_input: str):
     ]
 
 
+def build_fallback_user_content(system_prompt: str, user_input: str) -> str:
+    return (
+        f"Instruction:\n{system_prompt}\n\n"
+        f"User question:\n{user_input}"
+    )
+
+
+def build_user_only_messages(system_prompt: str, user_input: str):
+    return [
+        {
+            "role": "user",
+            "content": build_fallback_user_content(system_prompt, user_input),
+        }
+    ]
+
+
 def render_chat_prompt(tokenizer, system_prompt: str, user_input: str, add_generation_prompt: bool = True) -> str:
     messages = build_messages(system_prompt, user_input)
     if hasattr(tokenizer, "apply_chat_template"):
-        return tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=add_generation_prompt,
-        )
+        try:
+            return tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=add_generation_prompt,
+            )
+        except Exception as exc:
+            error_text = str(exc)
+            if "System role not supported" not in error_text:
+                raise
+            return tokenizer.apply_chat_template(
+                build_user_only_messages(system_prompt, user_input),
+                tokenize=False,
+                add_generation_prompt=add_generation_prompt,
+            )
     return (
         f"<|system|>\n{system_prompt}\n"
         f"<|user|>\n{user_input}\n"
@@ -63,4 +89,3 @@ def locate_token_positions(tokenizer, rendered_prompt: str, system_prompt: str, 
         "system_char_span": (system_start, system_end),
         "user_char_span": (user_start, user_end),
     }
-
