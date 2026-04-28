@@ -111,3 +111,30 @@ Success signal:
 
 - Ranking candidates by reference-centroid cosine beats random selection.
 - Ideally, activation selection approaches or beats seen-accuracy selection.
+
+## Experiment 4: Causal Activation Patching
+
+Use `scripts/run_activation_patching.py` to test whether the activation slice from a strong boundary prompt causally improves a weaker prompt.
+
+Default config:
+
+- `configs/config.gpu_activation_patch.yaml`
+
+Default patch:
+
+- Donor prompt: `principle3_concise_careful_format`
+- Target prompt: `principle3_plain`
+- Tasks: unseen tasks only
+- Position: `first_user_token`
+- Layers: `4`, `12`, `last`
+- Alphas: `0.5`, `1.0`
+
+Outputs:
+
+- `outputs/gpu_activation_patch/activation_patching/activation_patching_samples.json`
+- `outputs/gpu_activation_patch/activation_patching/activation_patching_summary.json`
+
+Success signal:
+
+- Patched target accuracy moves toward donor accuracy.
+- The strongest improvement is concentrated around the previously identified user-boundary layer/position.
