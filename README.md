@@ -2,6 +2,12 @@
 
 This repository implements an end-to-end pilot pipeline for testing whether transferable system prompts produce shared activation signatures and whether those signatures predict unseen-task transfer.
 
+## Current finding
+
+Across Qwen2.5-7B, Hermes-3-Llama-3.1-8B, and FuseChat-Gemma-2-9B-SFT, activation features contain transfer-related signal, often concentrated around the user-input boundary. Controlled principle probes suggest that transferable prompts are better explained by lightweight boundary-setting cues such as concise, careful, and minimal answer-format instructions than by heavy expert/reasoning scaffolds.
+
+Raw activation-centroid similarity was not reliable enough as a standalone prompt-selection score, so the strongest claim is mechanistic rather than a direct selection rule. See [Final Results Summary](docs/final_results_summary.md) for the consolidated result tables.
+
 ## What is included
 
 - `scripts/run_eval.py`: runs prompt-level generation and task evaluation
