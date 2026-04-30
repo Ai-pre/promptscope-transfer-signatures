@@ -1,4 +1,4 @@
-model_name: unsloth/gemma-4-E2B
+model_name: unsloth/gemma-4-E2B-it
 torch_dtype: float16
 device_map: auto
 seed: 42
