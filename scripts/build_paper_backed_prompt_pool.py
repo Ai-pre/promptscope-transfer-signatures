@@ -26,6 +26,10 @@ LEAST_TO_MOST_PAPER_URL = "https://arxiv.org/abs/2205.10625"
 GENERATED_KNOWLEDGE_PAPER_URL = "https://arxiv.org/abs/2110.08387"
 EXPERT_PROMPTING_PAPER_URL = "https://arxiv.org/abs/2305.14688"
 EMOTION_PROMPT_PAPER_URL = "https://arxiv.org/abs/2307.11760"
+BBH_DATASET_URL = "https://huggingface.co/datasets/Joschka/big_bench_hard"
+BBH_PAPER_URL = "https://arxiv.org/abs/2210.09261"
+MMLU_PRO_DATASET_URL = "https://huggingface.co/datasets/TIGER-Lab/MMLU-Pro"
+MMLU_PRO_PAPER_URL = "https://arxiv.org/abs/2406.01574"
 
 META_PROMPTING_FILES = {
     "meta_prompting_meta_expert": {
@@ -305,6 +309,106 @@ def build_promptbench_records():
     return records
 
 
+def build_expanded_seen_task_records():
+    def make_record(
+        *,
+        prompt_id: str,
+        source: str,
+        source_title: str,
+        source_url: str,
+        paper_title: str,
+        paper_url: str,
+        optimized_for_tasks: list[str],
+        original_prompt_role: str,
+        source_note: str,
+        text: str,
+    ):
+        return {
+            "id": prompt_id,
+            "group_id": prompt_id,
+            "variant": "original",
+            "source": source,
+            "source_title": source_title,
+            "source_url": source_url,
+            "paper_title": paper_title,
+            "paper_url": paper_url,
+            "provenance": "paper_or_official_benchmark",
+            "prompt_role": "system",
+            "original_prompt_role": original_prompt_role,
+            "task_scope": "task_specific",
+            "optimized_for_tasks": optimized_for_tasks,
+            "source_datasets": optimized_for_tasks,
+            "source_note": source_note,
+            "text": normalize_text_block(text),
+        }
+
+    return [
+        make_record(
+            prompt_id="bbh_answer_only",
+            source="bbh",
+            source_title="BIG-Bench Hard answer-only prompting format",
+            source_url=BBH_DATASET_URL,
+            paper_title="Challenging BIG-Bench Tasks and Whether Chain-of-Thought Can Solve Them",
+            paper_url=BBH_PAPER_URL,
+            optimized_for_tasks=["bbh"],
+            original_prompt_role="benchmark_prompt_format",
+            source_note=(
+                "BBH reports answer-only and chain-of-thought prompt formats; this is the direct-answer "
+                "system-level rendering used to align the expanded seen-task prompt pool."
+            ),
+            text="Answer the question. Give only the final answer.",
+        ),
+        make_record(
+            prompt_id="bbh_zero_shot_cot",
+            source="bbh",
+            source_title="BIG-Bench Hard chain-of-thought prompting format",
+            source_url=BBH_DATASET_URL,
+            paper_title="Challenging BIG-Bench Tasks and Whether Chain-of-Thought Can Solve Them",
+            paper_url=BBH_PAPER_URL,
+            optimized_for_tasks=["bbh"],
+            original_prompt_role="benchmark_prompt_format",
+            source_note=(
+                "BBH evaluates chain-of-thought prompting for hard reasoning tasks; this is a compact "
+                "zero-shot CoT rendering compatible with this repository's system-prompt protocol."
+            ),
+            text="Let's think step by step. Give the final answer clearly at the end.",
+        ),
+        make_record(
+            prompt_id="mmlu_pro_direct_letter",
+            source="mmlu_pro",
+            source_title="MMLU-Pro direct multiple-choice answer format",
+            source_url=MMLU_PRO_DATASET_URL,
+            paper_title="MMLU-Pro: A More Robust and Challenging Multi-Task Language Understanding Benchmark",
+            paper_url=MMLU_PRO_PAPER_URL,
+            optimized_for_tasks=["mmlu_pro"],
+            original_prompt_role="benchmark_prompt_format",
+            source_note=(
+                "MMLU-Pro uses 10-option multiple-choice questions and evaluates final option extraction; "
+                "this prompt fixes the answer contract to a single option letter."
+            ),
+            text="Answer the multiple-choice question. Choose the single best option and give only the option letter.",
+        ),
+        make_record(
+            prompt_id="mmlu_pro_knowledge_cot",
+            source="mmlu_pro",
+            source_title="MMLU-Pro knowledge-expert CoT answer format",
+            source_url=MMLU_PRO_DATASET_URL,
+            paper_title="MMLU-Pro: A More Robust and Challenging Multi-Task Language Understanding Benchmark",
+            paper_url=MMLU_PRO_PAPER_URL,
+            optimized_for_tasks=["mmlu_pro"],
+            original_prompt_role="benchmark_prompt_format",
+            source_note=(
+                "Inspired by MMLU-Pro's knowledge-intensive multi-choice setup and CoT evaluation discussion; "
+                "rendered as a system prompt for activation-signature comparison."
+            ),
+            text=(
+                "You are a knowledge expert. Think step by step when needed, then derive the final "
+                "multiple-choice answer as: The answer is (X)."
+            ),
+        ),
+    ]
+
+
 def dedupe_records(records: list[dict]):
     seen = set()
     unique = []
@@ -327,6 +431,7 @@ def main():
     records.extend(build_meta_prompting_records())
     records.extend(build_promptwizard_seed_records())
     records.extend(build_promptbench_records())
+    records.extend(build_expanded_seen_task_records())
     records = dedupe_records(records)
 
     with output_path.open("w", encoding="utf-8") as handle:

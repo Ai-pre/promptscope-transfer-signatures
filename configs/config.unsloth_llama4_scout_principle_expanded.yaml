@@ -1,0 +1,45 @@
+﻿model_name: unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-8bit
+torch_dtype: float16
+device_map: auto
+seed: 42
+
+tasks:
+  seen:
+    - gsm8k
+    - csqa
+    - bbh
+    - mmlu_pro
+  unseen:
+    - svamp
+    - boolq
+    - bbeh_mini
+    - gpqa
+
+batch_size: 1
+max_new_tokens: 96
+limit_per_task: 100
+limit_prompts: null
+
+layers:
+  - 8
+  - 24
+  - -1
+
+positions:
+  - system_last_token
+  - first_user_token
+
+base_prompt: "You are a helpful assistant."
+
+paths:
+  prompts: data/prompts_principle_boundary.jsonl
+  datasets_dir: data/datasets
+  outputs_dir: outputs/unsloth_llama4_scout_principle_expanded
+
+analysis:
+  ridge_alpha: 1.0
+  logistic_c: 1.0
+  n_splits: 5
+  top_k: 5
+  random_trials: 500
+

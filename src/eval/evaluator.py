@@ -12,8 +12,9 @@ from src.utils.io import batched
 
 
 NUMERIC_TASKS = {"gsm8k", "svamp"}
-MULTIPLE_CHOICE_TASKS = {"csqa"}
+MULTIPLE_CHOICE_TASKS = {"csqa", "mmlu_pro", "gpqa"}
 BOOLEAN_TASKS = {"boolq"}
+SHORT_ANSWER_TASKS = {"bbh", "bbeh_mini"}
 
 
 def generate_batch(model, tokenizer, prompts, max_new_tokens: int = 128):
@@ -90,6 +91,32 @@ def canonicalize_boolean(text) -> str:
     return "true" if matches[-1] in {"true", "yes"} else "false"
 
 
+def canonicalize_short_answer(text) -> str:
+    normalized = normalize_text(text)
+    normalized = re.sub(
+        r"^(final\s+answer|answer|the\s+answer\s+is|therefore,?\s+the\s+answer\s+is)\s*[:\-]?\s*",
+        "",
+        normalized,
+    )
+    normalized = normalized.splitlines()[-1] if "\n" in normalized else normalized
+    return normalized.strip(" .,:;`'\"()[]{}")
+
+
+def short_answer_matches(prediction: str, gold_label) -> tuple[float, str, str]:
+    pred_norm = canonicalize_short_answer(prediction)
+    gold_norm = canonicalize_short_answer(gold_label)
+    if pred_norm == gold_norm:
+        return 1.0, pred_norm, gold_norm
+
+    # Avoid false positives for single-letter answers; those should be handled
+    # by the multiple-choice normalizer when valid choices are available.
+    if len(gold_norm) <= 1:
+        return 0.0, pred_norm, gold_norm
+
+    pattern = r"(?<!\w)" + re.escape(gold_norm) + r"(?!\w)"
+    return float(bool(re.search(pattern, normalize_text(prediction)))), pred_norm, gold_norm
+
+
 def normalize_prediction(task_name: str, prediction: str, gold_label, sample: dict):
     if task_name in NUMERIC_TASKS:
         return canonicalize_number(prediction), canonicalize_number(gold_label)
@@ -101,10 +128,15 @@ def normalize_prediction(task_name: str, prediction: str, gold_label, sample: di
         )
     if task_name in BOOLEAN_TASKS:
         return canonicalize_boolean(prediction), canonicalize_boolean(gold_label)
+    if task_name in SHORT_ANSWER_TASKS:
+        return canonicalize_short_answer(prediction), canonicalize_short_answer(gold_label)
     return normalize_text(prediction), normalize_text(gold_label)
 
 
 def compute_accuracy(prediction: str, gold_label, task_name: str, sample: dict):
+    if task_name in SHORT_ANSWER_TASKS:
+        return short_answer_matches(prediction, gold_label)
+
     pred_norm, gold_norm = normalize_prediction(task_name, prediction, gold_label, sample)
     return float(pred_norm == gold_norm), pred_norm, gold_norm
 

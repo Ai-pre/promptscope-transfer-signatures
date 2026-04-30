@@ -12,19 +12,51 @@ Move the project from a pilot result to a more defensible claim:
 
 The previous pilot used accessible substitutes such as Hermes and FuseChat-Gemma. For a stronger follow-up, rerun the reference prompt experiment and activation-informed prompt design on newer Unsloth checkpoints.
 
+Use the expanded split for the next main run:
+
+| Split | Tasks | Role |
+| --- | --- | --- |
+| Seen | `gsm8k`, `csqa`, `bbh`, `mmlu_pro` | Prompt-selection and activation-probe fitting pool |
+| Unseen | `svamp`, `boolq`, `bbeh_mini`, `gpqa` | Holdout transfer/generalization pool |
+
+Rationale:
+
+- `gsm8k -> svamp`: same arithmetic-reasoning family, different dataset style.
+- `csqa -> boolq`: commonsense/multiple-choice QA to passage-based boolean QA.
+- `bbh -> bbeh_mini`: broad hard reasoning to a harder OOD successor benchmark.
+- `mmlu_pro -> gpqa`: broad knowledge-intensive reasoning to graduate-level science QA.
+
+Before running models, prepare the expanded datasets and prompt pool:
+
+```bash
+python scripts/prepare_datasets.py \
+  --config configs/config.unsloth_qwen3_4b_general_expanded.yaml \
+  --tasks gsm8k csqa bbh mmlu_pro svamp boolq bbeh_mini gpqa
+
+python scripts/build_paper_backed_prompt_pool.py \
+  --output data/prompts_paper_backed.jsonl
+
+python scripts/build_prompt_subsets.py \
+  --config configs/config.unsloth_qwen3_4b_general_expanded.yaml \
+  --input data/prompts_paper_backed.jsonl \
+  --tag expanded
+```
+
+If the official GPQA repo is gated on the server, either login with Hugging Face or pass `--hf-token`. The downloader also falls back to a public GPQA-Diamond mirror when the official gated repo is unavailable.
+
 Recommended configs:
 
-- `configs/config.unsloth_qwen3_4b_general_mixed_clean.yaml`
-- `configs/config.unsloth_qwen3_4b_principle_boundary.yaml`
-- `configs/config.unsloth_llama4_scout_general_mixed_clean.yaml`
-- `configs/config.unsloth_llama4_scout_principle_boundary.yaml`
-- `configs/config.unsloth_gemma4_e2b_general_mixed_clean.yaml`
-- `configs/config.unsloth_gemma4_e2b_principle_boundary.yaml`
+- `configs/config.unsloth_qwen3_4b_general_expanded.yaml`
+- `configs/config.unsloth_qwen3_4b_principle_expanded.yaml`
+- `configs/config.unsloth_llama4_scout_general_expanded.yaml`
+- `configs/config.unsloth_llama4_scout_principle_expanded.yaml`
+- `configs/config.unsloth_gemma4_e2b_general_expanded.yaml`
+- `configs/config.unsloth_gemma4_e2b_principle_expanded.yaml`
 
 Optional larger Qwen3.6 run if the server can handle it:
 
-- `configs/config.unsloth_qwen36_27b_general_mixed_clean.yaml`
-- `configs/config.unsloth_qwen36_27b_principle_boundary.yaml`
+- `configs/config.unsloth_qwen36_27b_general_expanded.yaml`
+- `configs/config.unsloth_qwen36_27b_principle_expanded.yaml`
 
 For each model family, run:
 

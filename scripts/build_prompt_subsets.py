@@ -17,6 +17,11 @@ def parse_args():
     parser.add_argument("--config", default="configs/config.yaml")
     parser.add_argument("--input", default=None, help="Optional prompt file override.")
     parser.add_argument("--output-dir", default="data")
+    parser.add_argument(
+        "--tag",
+        default="",
+        help="Optional suffix inserted before .jsonl so multiple seen-task prompt pools can coexist.",
+    )
     return parser.parse_args()
 
 
@@ -25,6 +30,14 @@ def write_jsonl(path, records):
     with path.open("w", encoding="utf-8") as handle:
         for record in records:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def tagged_name(file_name: str, tag: str) -> str:
+    if not tag:
+        return file_name
+    if file_name.endswith(".jsonl"):
+        return f"{file_name[:-6]}_{tag}.jsonl"
+    return f"{file_name}_{tag}"
 
 
 def intersects_seen_tasks(record: dict, seen_tasks: set[str]) -> bool:
@@ -118,7 +131,7 @@ def main():
     }
 
     for file_name, subset in subsets.items():
-        output_path = output_dir / file_name
+        output_path = output_dir / tagged_name(file_name, args.tag)
         write_jsonl(output_path, subset)
         print(f"[build_prompt_subsets] wrote {len(subset)} prompts to {output_path}", flush=True)
 
