@@ -1,4 +1,4 @@
-model_name: Qwen/Qwen2.5-7B-Instruct
+model_name: unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-8bit
 torch_dtype: float16
 device_map: auto
 seed: 42
@@ -17,8 +17,8 @@ limit_per_task: 100
 limit_prompts: null
 
 layers:
-  - 4
-  - 12
+  - 8
+  - 24
   - -1
 
 positions:
@@ -30,7 +30,7 @@ base_prompt: "You are a helpful assistant."
 paths:
   prompts: data/prompts_principle_boundary.jsonl
   datasets_dir: data/datasets
-  outputs_dir: outputs/gpu_activation_patch
+  outputs_dir: outputs/unsloth_llama4_scout_principle_boundary
 
 analysis:
   ridge_alpha: 1.0
@@ -38,18 +38,3 @@ analysis:
   n_splits: 5
   top_k: 5
   random_trials: 500
-
-patching:
-  donor_prompt_id: principle3_concise_careful_format
-  target_prompt_id: principle3_plain
-  task_split: unseen
-  limit_per_task: 25
-  layers:
-    - 4
-    - 12
-    - -1
-  positions:
-    - first_user_token
-  alphas:
-    - 0.5
-    - 1.0

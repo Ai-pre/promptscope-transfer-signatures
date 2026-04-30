@@ -6,6 +6,11 @@ import warnings
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+try:
+    from transformers import AutoModelForImageTextToText
+except ImportError:  # Older transformers versions do not expose this auto class.
+    AutoModelForImageTextToText = None
+
 
 TORCH_DTYPES = {
     "auto": "auto",
@@ -97,7 +102,18 @@ def load_model(model_name: str, torch_dtype: str = "auto", device_map: str | Non
     if runtime_device_map is not None:
         model_kwargs["device_map"] = runtime_device_map
 
-    model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
+    try:
+        model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
+    except (OSError, ValueError) as exc:
+        if AutoModelForImageTextToText is None:
+            raise
+        warnings.warn(
+            f"AutoModelForCausalLM could not load {model_name!r}; trying "
+            "AutoModelForImageTextToText for newer multimodal checkpoints. "
+            f"Original error: {exc}",
+            RuntimeWarning,
+        )
+        model = AutoModelForImageTextToText.from_pretrained(model_name, **model_kwargs)
     if runtime_device_map is None:
         target_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model.to(target_device)

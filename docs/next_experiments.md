@@ -2,139 +2,118 @@
 
 ## Goal
 
-Move the project from a strong pilot to a paper-grade claim by adding one test for each missing axis:
+Move the project from a pilot result to a more defensible claim:
 
-1. Reproducibility: check whether the activation/principle story survives on a second model.
-2. Causality: isolate lightweight boundary-setting components with minimal-pair probes.
-3. Practicality: test whether activation similarity can actually select good prompts.
+1. Reproducibility: rerun the same pipeline on newer, more canonical accessible checkpoints.
+2. Interpretability: separate mixed reference directions into component-level prompt directions.
+3. Practicality: test whether activation information can guide prompt design better than raw cosine selection.
 
-## Experiment 1: Cross-Model Reproducibility
+## Experiment 1: Newer Model Reproducibility
 
-Run the clean paper-backed reference set and the boundary probe set on two stronger instruction-tuned families:
+The previous pilot used accessible substitutes such as Hermes and FuseChat-Gemma. For a stronger follow-up, rerun the reference prompt experiment and activation-informed prompt design on newer Unsloth checkpoints.
 
-- `meta-llama/Llama-3.1-8B-Instruct`
-- `google/gemma-2-9b-it`
-- If gated access is unavailable on the server, use the ungated fallback `mistralai/Mistral-7B-Instruct-v0.3`.
-- If you want a closer family-level substitute for gated checkpoints, use open derivatives:
-  - `NousResearch/Hermes-3-Llama-3.1-8B` for the Llama family
-  - `FuseAI/FuseChat-Gemma-2-9B-SFT` for the Gemma family
+Recommended configs:
 
-Suggested order:
+- `configs/config.unsloth_qwen3_4b_general_mixed_clean.yaml`
+- `configs/config.unsloth_qwen3_4b_principle_boundary.yaml`
+- `configs/config.unsloth_llama4_scout_general_mixed_clean.yaml`
+- `configs/config.unsloth_llama4_scout_principle_boundary.yaml`
+- `configs/config.unsloth_gemma4_e2b_general_mixed_clean.yaml`
+- `configs/config.unsloth_gemma4_e2b_principle_boundary.yaml`
 
-1. Run Gemma first because it is usually easier to access from Hugging Face.
-2. Run Llama next if the server account has accepted the Meta license / token gate.
+Optional larger Qwen3.6 run if the server can handle it:
 
-Configs:
+- `configs/config.unsloth_qwen36_27b_general_mixed_clean.yaml`
+- `configs/config.unsloth_qwen36_27b_principle_boundary.yaml`
 
-- `configs/config.gemma2_general_mixed_clean.yaml`
-- `configs/config.gemma2_principle_boundary.yaml`
-- `configs/config.llama31_general_mixed_clean.yaml`
-- `configs/config.llama31_principle_boundary.yaml`
-- `configs/config.mistral7_general_mixed_clean.yaml`
-- `configs/config.mistral7_principle_boundary.yaml`
-- `configs/config.hermes3_general_mixed_clean.yaml`
-- `configs/config.hermes3_principle_boundary.yaml`
-- `configs/config.fusechat_gemma_general_mixed_clean.yaml`
-- `configs/config.fusechat_gemma_principle_boundary.yaml`
+For each model family, run:
 
-Outputs:
+```bash
+python scripts/run_eval.py --config <general_config>
+python scripts/extract_activation.py --config <general_config>
+python scripts/run_analysis.py --config <general_config>
 
-- `outputs/gemma2_general_mixed_clean/results/analysis_summary.json`
-- `outputs/gemma2_general_mixed_clean/results/slice_analysis.json`
-- `outputs/gemma2_principle_boundary/principle_results/principle_summary.json`
-- `outputs/gemma2_principle_boundary/principle_results/principle_component_effects.json`
-- `outputs/gemma2_principle_boundary/principle_results/principle_contrasts.json`
-- `outputs/llama31_general_mixed_clean/results/analysis_summary.json`
-- `outputs/llama31_general_mixed_clean/results/slice_analysis.json`
-- `outputs/llama31_principle_boundary/principle_results/principle_summary.json`
-- `outputs/llama31_principle_boundary/principle_results/principle_component_effects.json`
-- `outputs/llama31_principle_boundary/principle_results/principle_contrasts.json`
-- `outputs/mistral7_general_mixed_clean/results/analysis_summary.json`
-- `outputs/mistral7_general_mixed_clean/results/slice_analysis.json`
-- `outputs/mistral7_principle_boundary/principle_results/principle_summary.json`
-- `outputs/mistral7_principle_boundary/principle_results/principle_component_effects.json`
-- `outputs/mistral7_principle_boundary/principle_results/principle_contrasts.json`
-- `outputs/hermes3_general_mixed_clean/results/analysis_summary.json`
-- `outputs/hermes3_general_mixed_clean/results/slice_analysis.json`
-- `outputs/hermes3_principle_boundary/principle_results/principle_summary.json`
-- `outputs/hermes3_principle_boundary/principle_results/principle_component_effects.json`
-- `outputs/hermes3_principle_boundary/principle_results/principle_contrasts.json`
-- `outputs/fusechat_gemma_general_mixed_clean/results/analysis_summary.json`
-- `outputs/fusechat_gemma_general_mixed_clean/results/slice_analysis.json`
-- `outputs/fusechat_gemma_principle_boundary/principle_results/principle_summary.json`
-- `outputs/fusechat_gemma_principle_boundary/principle_results/principle_component_effects.json`
-- `outputs/fusechat_gemma_principle_boundary/principle_results/principle_contrasts.json`
+python scripts/run_eval.py --config <principle_config>
+python scripts/extract_activation.py --config <principle_config>
+python scripts/run_analysis.py --config <principle_config>
+
+python scripts/run_principle_analysis.py \
+  --reference-config <general_config> \
+  --config <principle_config>
+
+python scripts/run_activation_selection.py \
+  --reference-config <general_config> \
+  --candidate-config <principle_config>
+```
 
 Success signal:
 
-- Activation predicts unseen transfer above random.
-- Best slice is again concentrated around user-input boundary positions.
-- Lightweight boundary-setting beats heavy or intrusive controls.
+- Activation-based top-5 beats random top-5.
+- The strongest slice again appears near a user-input boundary or another interpretable layer/position.
+- Lightweight boundary-setting prompts remain competitive with or better than heavy scaffold prompts.
 
-## Experiment 2: Minimal-Pair Boundary Probes
+## Experiment 2: Component Direction Decomposition
 
-Use `configs/config.gpu_principle_boundary.yaml`.
+The current reference centroid is a mixture direction. It averages the activation signatures of strong paper-backed prompts, but those prompts contain many components at once: concise wording, answer format, reasoning cue, persona, verbosity, and carefulness.
 
-This isolates:
+Therefore, a high cosine with the reference centroid is hard to interpret. It does not tell us whether a prompt is close because of `concise`, `format`, `careful`, or some mixture of all of them.
 
-- `concise`
-- `careful`
-- `check`
-- `format`
-- `soft_reason`
-- combinations such as `concise_careful_format`
+Next, define component directions using controlled prompt pairs:
 
-Outputs:
+```text
+concise_direction = delta_h(concise_prompt) - delta_h(plain_prompt)
+format_direction = delta_h(format_prompt) - delta_h(plain_prompt)
+careful_direction = delta_h(careful_prompt) - delta_h(plain_prompt)
+check_direction = delta_h(check_prompt) - delta_h(plain_prompt)
+soft_reason_direction = delta_h(soft_reason_prompt) - delta_h(plain_prompt)
+```
 
-- `outputs/gpu_principle_boundary/results/analysis_summary.json`
-- `outputs/gpu_principle_boundary/principle_results/principle_summary.json`
-- `outputs/gpu_principle_boundary/principle_results/principle_component_effects.json`
-- `outputs/gpu_principle_boundary/principle_results/principle_contrasts.json`
+Then compare high-performing prompts against these component directions:
 
-Success signal:
+```text
+cosine(prompt_delta_h, concise_direction)
+cosine(prompt_delta_h, format_direction)
+cosine(prompt_delta_h, careful_direction)
+```
 
-- `concise` improves unseen performance.
-- `careful` or `check` improves activation similarity to the reference centroid.
-- Combined lightweight boundary prompts preserve or improve unseen accuracy without becoming verbose.
+Key question:
 
-## Experiment 3: Activation-Based Selection
-
-Use `scripts/run_activation_selection.py` after both the reference and candidate runs are complete.
-
-Outputs:
-
-- `outputs/gpu_principle_boundary/activation_selection/activation_selection_summary.json`
-- `outputs/gpu_principle_boundary/activation_selection/activation_selection_group_table.json`
-- `outputs/gpu_principle_boundary/activation_selection/activation_selection_report.md`
+- Is the good-prompt activation direction mostly explained by concise wording, minimal answer formatting, careful reading, or a combination?
 
 Success signal:
 
-- Ranking candidates by reference-centroid cosine beats random selection.
-- Ideally, activation selection approaches or beats seen-accuracy selection.
+- High-performing prompts align more with lightweight component directions than heavy scaffold directions.
+- Component-direction similarity is more interpretable than raw reference-centroid cosine.
+- The same component direction appears useful across at least two model families.
 
-## Experiment 4: Causal Activation Patching
+## Experiment 3: Better Activation-Guided Prompt Design
 
-Use `scripts/run_activation_patching.py` to test whether the activation slice from a strong boundary prompt causally improves a weaker prompt.
+Raw reference-centroid cosine was not reliable enough as a standalone prompt selection score.
 
-Default config:
+Instead of using one mixed centroid, try more structured scoring:
 
-- `configs/config.gpu_activation_patch.yaml`
+- supervised probe score from activation signatures
+- normalized component directions
+- task-conditioned centroids
+- component direction decomposition
 
-Default patch:
+Candidate scoring examples:
 
-- Donor prompt: `principle3_concise_careful_format`
-- Target prompt: `principle3_plain`
-- Tasks: unseen tasks only
-- Position: `first_user_token`
-- Layers: `4`, `12`, `last`
-- Alphas: `0.5`, `1.0`
+```text
+score(prompt) =
+  cosine(prompt_delta_h, concise_direction)
+  + cosine(prompt_delta_h, format_direction)
+  + cosine(prompt_delta_h, careful_direction)
+```
 
-Outputs:
+or:
 
-- `outputs/gpu_activation_patch/activation_patching/activation_patching_samples.json`
-- `outputs/gpu_activation_patch/activation_patching/activation_patching_summary.json`
+```text
+score(prompt) = ridge_prediction(prompt_delta_h)
+```
 
 Success signal:
 
-- Patched target accuracy moves toward donor accuracy.
-- The strongest improvement is concentrated around the previously identified user-boundary layer/position.
+- Structured activation-guided scoring beats random selection.
+- Ideally it approaches or beats seen-task selection.
+- The score is interpretable in terms of prompt components, not just a black-box activation centroid.
