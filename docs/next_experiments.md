@@ -44,6 +44,11 @@ python scripts/run_principle_analysis.py \
 python scripts/run_activation_selection.py \
   --reference-config <general_config> \
   --candidate-config <principle_config>
+
+python scripts/run_structured_activation_design.py \
+  --reference-config <general_config> \
+  --candidate-config <principle_config> \
+  --target-components concise careful format
 ```
 
 Success signal:
@@ -85,6 +90,30 @@ Success signal:
 - High-performing prompts align more with lightweight component directions than heavy scaffold directions.
 - Component-direction similarity is more interpretable than raw reference-centroid cosine.
 - The same component direction appears useful across at least two model families.
+
+Implemented script:
+
+```bash
+python scripts/run_structured_activation_design.py \
+  --reference-config <general_config> \
+  --candidate-config <principle_config> \
+  --target-components concise careful format
+```
+
+What the script does:
+
+1. Loads the best reference activation slice from the paper-backed prompt run.
+2. Builds a reference centroid from the top reference prompts.
+3. Builds component directions from minimal controlled pairs in the designed prompt pool.
+4. Scores each designed prompt by alignment with target component directions.
+5. Compares structured component scoring against reference-centroid cosine, seen-task selection, and random selection.
+
+Main outputs:
+
+- `structured_activation_design/structured_activation_summary.json`
+- `structured_activation_design/structured_activation_report.md`
+- `structured_activation_design/component_direction_table.json`
+- `structured_activation_design/structured_activation_group_table.json`
 
 ## Experiment 3: Better Activation-Guided Prompt Design
 
