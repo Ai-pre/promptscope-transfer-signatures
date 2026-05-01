@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import re
 from decimal import Decimal, InvalidOperation
 
@@ -34,7 +35,7 @@ def generate_batch(model, tokenizer, prompts, max_new_tokens: int = 128):
         # max_new_tokens is passed too, Transformers warns on every batch even
         # though max_new_tokens is the effective limit. Use a detached copy so
         # generation is controlled only by max_new_tokens here.
-        generation_config = generation_config.clone()
+        generation_config = copy.deepcopy(generation_config)
         generation_config.max_length = None
 
     with torch.no_grad():
