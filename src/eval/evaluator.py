@@ -30,22 +30,34 @@ def generate_batch(model, tokenizer, prompts, max_new_tokens: int = 128):
     prompt_length = encoded["input_ids"].shape[1]
 
     generation_config = getattr(model, "generation_config", None)
+    generation_kwargs = {}
     if generation_config is not None:
-        # Some checkpoints ship a huge max_length in generation_config. When
-        # max_new_tokens is passed too, Transformers warns on every batch even
-        # though max_new_tokens is the effective limit. Use a detached copy so
-        # generation is controlled only by max_new_tokens here.
+        # Keep generation deterministic and warning-free across Transformers
+        # versions by passing all generation settings through one config object.
         generation_config = copy.deepcopy(generation_config)
-        generation_config.max_length = None
+        generation_config.max_length = prompt_length + max_new_tokens
+        generation_config.max_new_tokens = None
+        generation_config.do_sample = False
+        generation_config.pad_token_id = tokenizer.pad_token_id
+        generation_config.eos_token_id = tokenizer.eos_token_id
+        for sampling_field in ("temperature", "top_p", "top_k"):
+            if hasattr(generation_config, sampling_field):
+                setattr(generation_config, sampling_field, None)
+        generation_kwargs["generation_config"] = generation_config
+    else:
+        generation_kwargs.update(
+            {
+                "max_length": prompt_length + max_new_tokens,
+                "do_sample": False,
+                "pad_token_id": tokenizer.pad_token_id,
+                "eos_token_id": tokenizer.eos_token_id,
+            }
+        )
 
     with torch.no_grad():
         output_ids = model.generate(
             **encoded,
-            generation_config=generation_config,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
-            pad_token_id=tokenizer.pad_token_id,
-            eos_token_id=tokenizer.eos_token_id,
+            **generation_kwargs,
         )
 
     generations = []
