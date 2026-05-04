@@ -295,15 +295,21 @@ def aggregate_by_group(table: pd.DataFrame):
     ]
     direction_columns = [column for column in table.columns if column.endswith("_direction_cosine")]
     value_columns.extend(direction_columns)
+    value_columns = [column for column in value_columns if column in table.columns]
+
+    metadata_aggs = {
+        "prompt_id": ("prompt_id", "first"),
+        "source": ("source", "first"),
+        "variant_count": ("prompt_id", "count"),
+    }
+    for column in ["principle_components_json", "complexity_level", "principle_family", "hypothesis_role", "contrast_group"]:
+        if column in table.columns:
+            metadata_aggs[column] = (column, "first")
 
     grouped = (
         table.groupby("group_id", dropna=False)
         .agg(
-            prompt_id=("prompt_id", "first"),
-            source=("source", "first"),
-            variant_count=("prompt_id", "count"),
-            principle_components_json=("principle_components_json", "first"),
-            complexity_level=("complexity_level", "first"),
+            **metadata_aggs,
             **{column: (column, "mean") for column in value_columns},
         )
         .reset_index()
