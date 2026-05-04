@@ -63,6 +63,33 @@ def parse_component_list(value):
     return [str(value).strip()]
 
 
+COMPONENT_NAMES = (
+    "concise",
+    "careful",
+    "format",
+    "check",
+    "soft_reason",
+    "hard_reason",
+    "strong_expert",
+    "expert",
+    "verbose",
+    "multiagent",
+)
+
+
+def infer_components_from_prompt_id(prompt_id: str):
+    prompt_id = str(prompt_id)
+    if "plain" in prompt_id or "baseline" in prompt_id:
+        return []
+    components = []
+    for component in COMPONENT_NAMES:
+        if component == "expert" and "strong_expert" in prompt_id:
+            continue
+        if component in prompt_id:
+            components.append(component)
+    return components
+
+
 def load_run_artifacts(config):
     project_root = config["_project_root"]
     outputs_root = resolve_path(project_root, config["paths"]["outputs_dir"])
@@ -122,6 +149,7 @@ def merge_candidate_prompt_metadata(candidate_table, candidate_config):
     prompt_meta = pd.DataFrame(load_prompts(prompts_path)).rename(columns={"id": "prompt_id"})
     keep_columns = [
         "prompt_id",
+        "principle_components",
         "principle_components_json",
         "principle_family",
         "complexity_level",
@@ -131,7 +159,20 @@ def merge_candidate_prompt_metadata(candidate_table, candidate_config):
     ]
     available = [column for column in keep_columns if column in prompt_meta.columns]
     merged = candidate_table.merge(prompt_meta[available], on="prompt_id", how="left")
-    merged["principle_components"] = merged["principle_components_json"].apply(parse_component_list)
+
+    if "principle_components_json" in merged.columns:
+        merged["principle_components"] = merged["principle_components_json"].apply(parse_component_list)
+    elif "principle_components" in merged.columns:
+        merged["principle_components"] = merged["principle_components"].apply(parse_component_list)
+    else:
+        merged["principle_components"] = merged["prompt_id"].apply(infer_components_from_prompt_id)
+
+    empty_mask = merged["principle_components"].apply(len) == 0
+    inferred = merged.loc[empty_mask, "prompt_id"].apply(infer_components_from_prompt_id)
+    merged.loc[empty_mask, "principle_components"] = inferred
+    merged["principle_components_json"] = merged["principle_components"].apply(
+        lambda items: json.dumps(items, ensure_ascii=False)
+    )
     merged["component_key"] = merged["principle_components"].apply(lambda items: tuple(sorted(items)))
     return merged
 
