@@ -255,17 +255,32 @@ def generation_kwargs_for_model(model, tokenizer, prompt_length, max_new_tokens)
     }
 
 
+def empty_patch_diagnostics():
+    return {
+        "hook_calls": 0,
+        "patched_calls": 0,
+        "patched_token_count": 0,
+        "patch_vector_norm": 0.0,
+        "per_token_patch_norm": 0.0,
+        "last_hidden_sequence_length": 0,
+    }
+
+
 @contextmanager
-def patch_layer_context(model, *, layer, vector, alpha, target_position, token_indices):
+def patch_layer_context(model, *, layer, vector, alpha, target_position, token_indices, diagnostics):
     if vector is None or alpha == 0:
         yield
         return
 
     resolved_layer, module = resolve_model_layer(model, layer)
     state = {"call_index": 0}
+    diagnostics["resolved_decoder_layer"] = int(resolved_layer)
+    diagnostics["patch_vector_norm"] = float(np.linalg.norm(np.asarray(vector, dtype=np.float32)))
+    diagnostics["per_token_patch_norm"] = float(abs(alpha) * diagnostics["patch_vector_norm"])
 
     def hook(_module, _inputs, output):
         state["call_index"] += 1
+        diagnostics["hook_calls"] += 1
         if isinstance(output, tuple):
             hidden = output[0]
             rest = output[1:]
@@ -274,6 +289,7 @@ def patch_layer_context(model, *, layer, vector, alpha, target_position, token_i
             rest = None
         if not torch.is_tensor(hidden) or hidden.dim() != 3:
             return output
+        diagnostics["last_hidden_sequence_length"] = int(hidden.shape[1])
 
         should_patch = False
         indices = token_indices
@@ -289,6 +305,8 @@ def patch_layer_context(model, *, layer, vector, alpha, target_position, token_i
         patch_vector = torch.as_tensor(vector, dtype=hidden.dtype, device=hidden.device)
         patched = hidden.clone()
         patched[:, indices, :] = patched[:, indices, :] + float(alpha) * patch_vector
+        diagnostics["patched_calls"] += 1
+        diagnostics["patched_token_count"] += int(len(indices))
         if rest is None:
             return patched
         return (patched, *rest)
@@ -322,6 +340,7 @@ def generate_one(
     prompt_length = encoded["input_ids"].shape[1]
     kwargs = generation_kwargs_for_model(model, tokenizer, prompt_length, max_new_tokens)
 
+    diagnostics = empty_patch_diagnostics()
     context = patch_layer_context(
         model,
         layer=layer,
@@ -329,13 +348,15 @@ def generate_one(
         alpha=alpha,
         target_position=target_position,
         token_indices=token_indices or [],
+        diagnostics=diagnostics,
     ) if layer is not None and vector is not None else nullcontext()
 
     with torch.no_grad():
         with context:
             output_ids = model.generate(**encoded, **kwargs)
     generated = output_ids[0, prompt_length:]
-    return tokenizer.decode(generated, skip_special_tokens=True).strip()
+    diagnostics["generated_token_count"] = int(generated.shape[0])
+    return tokenizer.decode(generated, skip_special_tokens=True).strip(), diagnostics
 
 
 def matched_random_direction(direction, rng):
@@ -386,7 +407,7 @@ def evaluate_condition(
             if target_position is not None
             else []
         )
-        prediction = generate_one(
+        prediction, patch_diagnostics = generate_one(
             model=model,
             tokenizer=tokenizer,
             rendered_prompt=rendered_prompt,
@@ -415,6 +436,7 @@ def evaluate_condition(
                 "normalized_label": gold_norm,
                 "correct": correct,
                 "prediction_word_count": len(prediction.split()),
+                **patch_diagnostics,
             }
         )
     return rows
@@ -441,6 +463,10 @@ def summarize(rows):
         .agg(
             accuracy=("correct", "mean"),
             mean_prediction_words=("prediction_word_count", "mean"),
+            mean_hook_calls=("hook_calls", "mean"),
+            mean_patched_calls=("patched_calls", "mean"),
+            mean_patched_token_count=("patched_token_count", "mean"),
+            mean_per_token_patch_norm=("per_token_patch_norm", "mean"),
             num_samples=("correct", "count"),
         )
         .reset_index()
@@ -465,7 +491,9 @@ def format_report(summary_table, metadata):
     for row in summary_table.itertuples(index=False):
         lines.append(
             f"- {row.task} / {row.condition} / layer={row.layer} / pos={row.target_position} / "
-            f"alpha={row.alpha}: acc={row.accuracy:.4f}, words={row.mean_prediction_words:.2f}, n={row.num_samples}"
+            f"alpha={row.alpha}: acc={row.accuracy:.4f}, words={row.mean_prediction_words:.2f}, "
+            f"hook={row.mean_hook_calls:.1f}, patched={row.mean_patched_calls:.1f}, "
+            f"patched_tokens={row.mean_patched_token_count:.1f}, n={row.num_samples}"
         )
     lines.append("")
     return "\n".join(lines)
