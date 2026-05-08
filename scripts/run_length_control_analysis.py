@@ -116,6 +116,8 @@ def build_prompt_table(eval_results, prompt_meta):
 
 def component_effects(prompt_table):
     rows = []
+    prompt_table = prompt_table.copy()
+    prompt_table["principle_components"] = prompt_table["principle_components"].apply(parse_component_list)
     components = sorted(
         {
             component
