@@ -60,6 +60,7 @@ Source-derived taxonomy controls:
 - `scripts/run_eval.py`: runs prompt-level generation and task evaluation
 - `scripts/extract_activation.py`: extracts hidden states and computes `delta_h = h(prompt) - h(base_prompt)`
 - `scripts/run_analysis.py`: computes similarity, stability, and transfer prediction baselines
+- `scripts/run_length_confound_analysis.py`: checks whether component effects remain after controlling for generated length, prompt length, and final-answer marker rate
 - `scripts/build_paper_backed_prompt_pool.py`: builds a paper-backed prompt pool from official repositories
 - `scripts/build_prompt_subsets.py`: builds filtered prompt pools for mixed vs. strict generalization runs
 - `data/prompts_paper_backed.jsonl`: default source-backed prompt pool with provenance metadata
