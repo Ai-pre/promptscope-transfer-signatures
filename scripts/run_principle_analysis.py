@@ -80,6 +80,23 @@ def build_slice_feature_table(activation_summary, summary_vectors, eval_prompt_s
         sliced = sliced[sliced["layer"] == layer]
     if position is not None and not (isinstance(position, float) and pd.isna(position)):
         sliced = sliced[sliced["position"] == position]
+    if sliced.empty:
+        available_tasks = sorted(activation_summary["task"].dropna().unique().tolist()) if "task" in activation_summary else []
+        available_slices = []
+        if {"layer", "position"}.issubset(activation_summary.columns):
+            available_slices = (
+                activation_summary[["layer", "position"]]
+                .drop_duplicates()
+                .sort_values(["layer", "position"])
+                .to_dict(orient="records")
+            )
+        raise ValueError(
+            "No activation rows matched the selected principle slice. "
+            f"Requested seen_tasks={list(seen_tasks)}, layer={layer}, position={position}. "
+            f"Available tasks={available_tasks}; available slices={available_slices[:10]}. "
+            "Run scripts/extract_activation.py for this principle config, and pass the matching "
+            "same-model --reference-config when running scripts/run_principle_analysis.py."
+        )
     features, prompt_meta, feature_keys = build_prompt_feature_matrix(
         activation_summary_df=sliced,
         summary_vectors=summary_vectors,

@@ -48,13 +48,16 @@
 
 ```bash
 python scripts/run_eval.py --config configs/config.unsloth_qwen3_4b_principle_expanded.yaml --limit-per-task 100
-python scripts/run_principle_analysis.py --config configs/config.unsloth_qwen3_4b_principle_expanded.yaml
+python scripts/extract_activation.py --config configs/config.unsloth_qwen3_4b_principle_expanded.yaml --limit-per-task 100
+python scripts/run_principle_analysis.py --config configs/config.unsloth_qwen3_4b_principle_expanded.yaml --reference-config configs/config.unsloth_qwen3_4b_general_expanded.yaml
 
 python scripts/run_eval.py --config configs/config.unsloth_llama31_8b_principle_expanded.yaml --limit-per-task 100
-python scripts/run_principle_analysis.py --config configs/config.unsloth_llama31_8b_principle_expanded.yaml
+python scripts/extract_activation.py --config configs/config.unsloth_llama31_8b_principle_expanded.yaml --limit-per-task 100
+python scripts/run_principle_analysis.py --config configs/config.unsloth_llama31_8b_principle_expanded.yaml --reference-config configs/config.unsloth_llama31_8b_general_expanded.yaml
 
 python scripts/run_eval.py --config configs/config.unsloth_gemma4_e2b_principle_expanded.yaml --limit-per-task 100
-python scripts/run_principle_analysis.py --config configs/config.unsloth_gemma4_e2b_principle_expanded.yaml
+python scripts/extract_activation.py --config configs/config.unsloth_gemma4_e2b_principle_expanded.yaml --limit-per-task 100
+python scripts/run_principle_analysis.py --config configs/config.unsloth_gemma4_e2b_principle_expanded.yaml --reference-config configs/config.unsloth_gemma4_e2b_general_expanded.yaml
 ```
 
 ### Priority 2. Length / decoding confound control
@@ -186,4 +189,3 @@ GPT review가 요구한 stronger protocol:
 좀 더 짧은 thesis:
 
 > Activation signatures diagnose transferable system-prompt behavior; in our controlled setting, the most stable principle is minimal answer mode rather than heavy reasoning scaffolding.
-
