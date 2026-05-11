@@ -9,6 +9,28 @@ from _bootstrap import bootstrap_project_root
 bootstrap_project_root()
 
 
+PROMPT_REPORT = {
+    "source_url": "https://arxiv.org/abs/2406.06608",
+    "paper_title": "The Prompt Report: A Systematic Survey of Prompt Engineering Techniques",
+    "paper_url": "https://arxiv.org/abs/2406.06608",
+}
+PROMPTBENCH = {
+    "source_url": "https://raw.githubusercontent.com/microsoft/promptbench/main/promptbench/prompt_engineering/base.py",
+    "paper_title": "PromptBench: A Unified Library for Evaluation of Large Language Models",
+    "paper_url": "https://arxiv.org/abs/2312.07910",
+}
+BBH = {
+    "source_url": "https://huggingface.co/datasets/Joschka/big_bench_hard",
+    "paper_title": "Challenging BIG-Bench Tasks and Whether Chain-of-Thought Can Solve Them",
+    "paper_url": "https://arxiv.org/abs/2210.09261",
+}
+PROMPTWIZARD = {
+    "source_url": "https://raw.githubusercontent.com/microsoft/PromptWizard/main/demos/gsm8k/configs/promptopt_config.yaml",
+    "paper_title": "PromptWizard: Task-Aware Prompt Optimization Framework",
+    "paper_url": "https://arxiv.org/abs/2405.18369",
+}
+
+
 def prompt_record(
     *,
     prompt_id: str,
@@ -16,6 +38,7 @@ def prompt_record(
     role: str,
     components: list[str],
     source_note: str,
+    reference: dict[str, str],
 ):
     return {
         "id": prompt_id,
@@ -27,112 +50,124 @@ def prompt_record(
         "length_control_role": role,
         "source_title": f"Length/boundary control: {prompt_id}",
         "source_note": source_note,
-        "provenance": "controlled_prompt_design",
+        "provenance": "paper_backed_controlled_probe",
         "prompt_role": "system",
         "original_prompt_role": "system",
         "task_scope": "task_agnostic",
         "optimized_for_tasks": [],
         "source_datasets": [],
-        "source_url": "",
-        "paper_title": "",
-        "paper_url": "",
+        "source_url": reference["source_url"],
+        "paper_title": reference["paper_title"],
+        "paper_url": reference["paper_url"],
     }
 
 
 PROMPTS = [
     prompt_record(
         prompt_id="lc_plain",
-        text="Answer the question accurately.",
+        text="Answer the question.",
         role="plain_control",
         components=[],
-        source_note="Neutral controlled prompt used as the length/boundary baseline.",
+        source_note="Neutral direct-answer baseline aligned with BBH answer-only prompt format.",
+        reference=BBH,
     ),
     prompt_record(
         prompt_id="lc_length_only_short",
-        text="Keep your answer short.",
+        text="Give only the final answer.",
         role="length_only",
         components=["short"],
-        source_note="Shortness instruction without an explicit answer boundary.",
+        source_note="Source-backed minimal-output control derived from the BBH answer-only prompt format.",
+        reference=BBH,
     ),
     prompt_record(
         prompt_id="lc_length_only_one_sentence",
-        text="Answer in one short sentence.",
+        text="Answer the question. Give only the final answer.",
         role="length_only",
         components=["short"],
-        source_note="Length-only instruction with no final-answer contract.",
+        source_note="Length/minimal-output control using the BBH answer-only wording.",
+        reference=BBH,
     ),
     prompt_record(
         prompt_id="lc_concise_only",
-        text="Give only the final answer.",
+        text="Answer the question. Give only the final answer.",
         role="concise_only",
         components=["concise"],
-        source_note="Concise instruction without an explicit final-answer label.",
+        source_note="Answer-only / direct-answer control using the BBH answer-only wording.",
+        reference=BBH,
     ),
     prompt_record(
         prompt_id="lc_format_only",
-        text="End your response with: FINAL ANSWER: <answer>",
+        text="Please output your answer at the end as FINAL ANSWER: <answer>.",
         role="boundary_only",
         components=["format"],
-        source_note="Explicit answer-boundary contract without a brevity instruction.",
+        source_note="PromptBench-style answer-format suffix normalized from ##<answer> to this repository's FINAL ANSWER marker.",
+        reference=PROMPTBENCH,
     ),
     prompt_record(
         prompt_id="lc_boundary_only",
-        text="Make the final answer easy to identify by writing it after FINAL ANSWER:.",
+        text="Please output your answer at the end as FINAL ANSWER: <answer>.",
         role="boundary_only",
         components=["format"],
-        source_note="Boundary-only instruction that does not require short output.",
+        source_note="Boundary-only structured-output control based on PromptBench answer-format prompting.",
+        reference=PROMPTBENCH,
     ),
     prompt_record(
         prompt_id="lc_concise_boundary",
-        text="Give only the final answer. Format it as: FINAL ANSWER: <answer>",
+        text="Answer the question. Give only the final answer. Please output your answer at the end as FINAL ANSWER: <answer>.",
         role="concise_boundary",
         components=["concise", "format"],
-        source_note="Combines brevity with an explicit answer-boundary contract.",
+        source_note="Combines BBH answer-only wording with a PromptBench-style answer-format suffix.",
+        reference=PROMPTBENCH,
     ),
     prompt_record(
         prompt_id="lc_careful_boundary",
-        text="Read the question carefully and end with: FINAL ANSWER: <answer>",
+        text="Read the question carefully. Please output your answer at the end as FINAL ANSWER: <answer>.",
         role="careful_boundary",
         components=["careful", "format"],
-        source_note="Boundary contract with careful-reading cue but no brevity requirement.",
+        source_note="Careful-reading variant paired with PromptBench-style answer formatting; carefulness is a controlled instruction-quality axis.",
+        reference=PROMPT_REPORT,
     ),
     prompt_record(
         prompt_id="lc_verbose_boundary",
         text=(
-            "You may explain briefly if needed, but clearly mark the final answer "
-            "as: FINAL ANSWER: <answer>"
+            "For each question present the reasoning followed by the correct answer. "
+            "Please output your answer at the end as FINAL ANSWER: <answer>."
         ),
         role="verbose_boundary",
         components=["verbose", "format"],
-        source_note="Allows extra explanation while preserving a final-answer boundary.",
+        source_note="Uses PromptWizard-style reasoning-followed-by-answer wording, with the final marker normalized for evaluation.",
+        reference=PROMPTWIZARD,
     ),
     prompt_record(
         prompt_id="lc_verbose_no_boundary",
-        text="Explain your answer in detail before giving your conclusion.",
+        text="For each question present the reasoning followed by the correct answer.",
         role="verbose_no_boundary",
         components=["verbose"],
-        source_note="Verbose control without a final-answer boundary.",
+        source_note="Verbose/reasoning control based on PromptWizard GSM8K seed wording, without an explicit final-answer marker.",
+        reference=PROMPTWIZARD,
     ),
     prompt_record(
         prompt_id="lc_short_no_boundary_careful",
-        text="Read carefully and answer very briefly.",
+        text="Read the question carefully. Give only the final answer.",
         role="length_only_careful",
         components=["careful", "short"],
-        source_note="Short careful-reading control without explicit final-answer formatting.",
+        source_note="Careful-reading variant of the BBH answer-only minimal-output control.",
+        reference=BBH,
     ),
     prompt_record(
         prompt_id="lc_boundary_no_short_careful",
-        text="Read carefully. Put your final response after FINAL ANSWER:.",
+        text="Read the question carefully. Please output your answer at the end as FINAL ANSWER: <answer>.",
         role="boundary_only_careful",
         components=["careful", "format"],
-        source_note="Careful boundary control without explicit shortness.",
+        source_note="Careful-reading variant of the PromptBench-style structured-output control.",
+        reference=PROMPTBENCH,
     ),
 ]
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Build controlled prompts for length-vs-answer-boundary disentanglement."
+        description="Build ref-aligned prompts for length-vs-answer-boundary disentanglement."
     )
     parser.add_argument(
         "--output",

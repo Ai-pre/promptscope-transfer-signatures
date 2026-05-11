@@ -4,9 +4,56 @@ This repository implements an end-to-end pilot pipeline for testing whether tran
 
 ## Current finding
 
-Across Qwen2.5-7B, Hermes-3-Llama-3.1-8B, and FuseChat-Gemma-2-9B-SFT, activation features contain transfer-related signal, often concentrated around the user-input boundary. Controlled principle probes suggest that transferable prompts are better explained by lightweight boundary-setting cues such as concise, careful, and minimal answer-format instructions than by heavy expert/reasoning scaffolds.
+Across `unsloth/Qwen3-4B-Instruct-2507`, `unsloth/gemma-4-E2B-it`, and `unsloth/Meta-Llama-3.1-8B-Instruct`, activation signatures contain transfer-related diagnostic signal. The most robust claim is not that activation signatures are a complete prompt selector or causal steering vector, but that they help diagnose which generation mode a system prompt induces.
 
-Raw activation-centroid similarity was not reliable enough as a standalone prompt-selection score, so the strongest claim is mechanistic rather than a direct selection rule. See [Final Results Summary](docs/final_results_summary.md) for the consolidated result tables.
+The final interpretation shifted after length-control and latent-trajectory analyses. Early controlled prompt results suggested lightweight boundary-setting cues such as `concise`, `careful`, and `format`; however, the more stable cross-model principle is now better described as **minimal answer mode / verbosity control**. In practice, short or answer-only prompts tend to avoid long, verbose generation trajectories. Explicit `FINAL ANSWER` formatting helps some models, especially Llama, but is not universal across Qwen and Gemma.
+
+Raw activation-centroid similarity was not reliable enough as a standalone prompt-selection score. Single-layer/single-token activation patching also did not reproduce the prompt behavior, so the strongest claim is diagnostic rather than causal. See [Final Lab Meeting Report](docs/final_lab_meeting_report_ko.md) for the current full write-up.
+
+## Prompt component design and references
+
+The controlled prompt components are not intended to be arbitrary wording choices. They are derived from recurring categories in prompt-engineering surveys and representative prompting methods, then simplified into minimal system-prompt interventions.
+
+The main taxonomy references are:
+
+- [The Prompt Report: A Systematic Survey of Prompt Engineering Techniques](https://arxiv.org/abs/2406.06608)
+- [A Systematic Survey of Prompt Engineering in Large Language Models: Techniques and Applications](https://arxiv.org/abs/2402.07927)
+
+Component mapping:
+
+| Component family | Local labels | Motivation / references |
+| --- | --- | --- |
+| Brevity / answer-only constraints | `short`, `concise` | Answer-only and direct-answer prompting patterns in benchmark prompts and prompt-engineering taxonomies |
+| Structured output constraints | `format` | Final-answer or structured-output contracts used for answer extraction |
+| Reasoning elicitation | `soft_reason`, `hard_reason` controls | [Chain-of-Thought](https://arxiv.org/abs/2201.11903), [Zero-shot-CoT](https://arxiv.org/abs/2205.11916) |
+| Problem decomposition | least-to-most reference prompts | [Least-to-Most Prompting](https://arxiv.org/abs/2205.10625) |
+| Knowledge elicitation | generated-knowledge reference prompts | [Generated Knowledge Prompting](https://arxiv.org/abs/2110.08387) |
+| Verification / self-check | `check` | [Self-Refine](https://arxiv.org/abs/2303.17651), [Self-Consistency](https://arxiv.org/abs/2203.11171) |
+| Role / persona prompting | expert and meta-expert reference prompts | [ExpertPrompting](https://arxiv.org/abs/2305.14688) |
+| Emotional stimulus prompting | emotion reference prompts | [EmotionPrompt](https://arxiv.org/abs/2307.11760) |
+| Prompt optimization / meta prompting | PromptWizard and meta-prompting reference prompts | [PromptWizard](https://arxiv.org/abs/2405.18369), [Meta Prompting](https://arxiv.org/abs/2311.11482) |
+
+The controlled prompt files split this into three levels:
+
+- `data/prompts_principle_boundary.jsonl` tests `concise`, `careful`, `format`, `check`, and `soft_reason` as minimal prompt components. These prompts are ref-aligned: for example, `concise` uses the BBH answer-only wording, `format` uses a PromptBench-style answer-format suffix normalized to `FINAL ANSWER`, `check` uses a PromptBench/EmotionPrompt recheck cue, and `soft_reason` uses the Zero-shot-CoT cue.
+- `data/prompts_length_control_boundary.jsonl` adds `short` and `verbose` controls to disentangle answer-boundary effects from output-length and verbosity effects. These controls are also ref-aligned: minimal-output prompts use BBH answer-only wording, format controls use PromptBench answer-format wording, and verbose controls use PromptWizard-style reasoning-followed-by-answer wording.
+- `data/prompts_taxonomy_controls.jsonl` adds one representative controlled prompt for broader taxonomy families: expert persona, emotional stimulus, generated knowledge, least-to-most decomposition, zero-shot CoT, meta-prompting, and PromptWizard-like task-aware prompting.
+
+The taxonomy-control pool is intentionally not an exhaustive combinatorial search. It is a small representative control set for checking whether the final minimal-answer-mode finding survives comparison against larger prompting families.
+
+Source-derived taxonomy controls:
+
+| Prompt id | Controlled family | Source-grounded cue used locally |
+| --- | --- | --- |
+| `taxonomy_answer_only` | Brevity / direct answer | Minimal answer-only control based on BBH: `Answer the question. Give only the final answer.` |
+| `taxonomy_structured_output` | Structured output | PromptBench-style final-answer contract normalized to: `FINAL ANSWER: <answer>` |
+| `taxonomy_zero_shot_cot` | Zero-shot chain-of-thought | Canonical Zero-shot-CoT cue from Kojima et al.: `Let's think step by step.` |
+| `taxonomy_generated_knowledge` | Generated knowledge prompting | Knowledge-first cue from Liu et al.: `Generate some knowledge about the input, then answer the question.` |
+| `taxonomy_least_to_most` | Problem decomposition | Least-to-most style cue: break the task into simpler subproblems before answering |
+| `taxonomy_expert_persona` | Expert / role prompting | ExpertPrompting-style role cue: answer as a distinguished domain expert |
+| `taxonomy_emotion` | Emotional stimulus prompting | EmotionPrompt-style cue: `This is important to my career.` |
+| `taxonomy_meta_prompting` | Meta prompting | Meta-prompting cue: focus on the formal task structure rather than content-specific examples |
+| `taxonomy_promptwizard_like` | Prompt optimization | PromptWizard-style cue: task-aware optimized instruction with expert perspective and concise strategy |
 
 ## What is included
 
