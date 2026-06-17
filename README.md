@@ -1,4 +1,4 @@
-# PromptScope: Transferable System Prompt Signatures
+# SCOUT: System-Prompt Candidate Ordering Using Hidden-State Traces
 
 This repository implements an end-to-end pilot pipeline for testing whether transferable system prompts produce shared activation signatures and whether those signatures predict unseen-task transfer.
 
